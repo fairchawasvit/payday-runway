@@ -501,7 +501,8 @@ nav.bar .add svg{width:24px;height:24px;stroke-width:2.2}
       reg.addEventListener('updatefound', () => { const w = reg.installing; w.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) show(w); }); });
       document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
     });
-    let reloaded = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloaded) { reloaded = true; location.reload(); } });
+    // Reload only when an update replaced a running version, not on the very first install.
+    const hadController = !!navigator.serviceWorker.controller; let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !reloaded) { reloaded = true; location.reload(); } });
   }
 </script>
