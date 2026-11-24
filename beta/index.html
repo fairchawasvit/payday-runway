@@ -495,7 +495,8 @@ summary{min-height:44px;display:flex;align-items:center}
 .dslot{display:flex;flex-direction:column;gap:14px}.dslot .group{background:none;padding:0}.dslot .note,.dslot .addrow input{background:var(--raise)}
 .num.prev{color:var(--ink-3)}
 .qsrow{display:flex;flex-wrap:wrap;gap:8px}
-#s-add:has(#quick:not([hidden])){min-height:calc(100dvh - 130px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}
+html,body{overscroll-behavior-y:none}
+.screen,#s-add:has(#quick:not([hidden])){min-height:calc(100dvh - 130px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}
 #quick{flex:1}.qpad{margin-top:auto}
 @media (max-height:720px){.qpad button{min-height:44px}.qcat{min-height:50px}.qv{font-size:36px}#quick{gap:6px}}
 /* guide */
