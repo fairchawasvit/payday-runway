@@ -1,0 +1,803 @@
+<meta charset="utf-8">
+<title>Runway BETA</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0c111b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Runway β">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+/* Layout: single 440px phone column; days-to-payday runway leads, ledger rows below; fixed bottom bar with raised add button */
+:root{ --hero:#141a26; --accent-ink:color-mix(in srgb,var(--marigold) 74%,#000); --accent-btn:color-mix(in srgb,var(--marigold) 84%,#000);
+  --ground:#eef0f4; --surface:#ffffff; --raise:#f6f7fa; --ink:#141a26; --ink-2:#556074; --ink-3:#5b6476; --line:#dde1e9;
+  --marigold:#c9760a; --marigold-ink:#ffffff; --marigold-tint:color-mix(in srgb,var(--marigold) 15%,var(--surface));
+  --debit:#b5402a; --credit:#23805a; --credit-tint:#e1f2ea; --debit-tint:#f9e6e1;
+  --shadow:0 1px 2px rgba(20,26,38,.06),0 8px 24px -12px rgba(20,26,38,.18);
+  --f-ui:"Geist","Noto Sans Thai",system-ui,sans-serif; --f-num:"Geist Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+  --ground:#0c111b; --surface:#141b28; --raise:#1a2332; --ink:#e9edf4; --ink-2:#a3adbf; --ink-3:#8792a6; --line:#243044;
+  --marigold:#f4a52a; --marigold-ink:#1b1104; --marigold-tint:color-mix(in srgb,var(--marigold) 15%,var(--surface));
+  --debit:#f08a72; --credit:#5fd0a0; --credit-tint:#12291f; --debit-tint:#2d1914;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 28px -14px rgba(0,0,0,.7); --hero:#24304a; --accent-ink:var(--marigold); --accent-btn:var(--marigold);}}
+:root[data-theme="dark"]{color-scheme:dark;
+  --ground:#0c111b; --surface:#141b28; --raise:#1a2332; --ink:#e9edf4; --ink-2:#a3adbf; --ink-3:#8792a6; --line:#243044;
+  --marigold:#f4a52a; --marigold-ink:#1b1104; --marigold-tint:color-mix(in srgb,var(--marigold) 15%,var(--surface));
+  --debit:#f08a72; --credit:#5fd0a0; --credit-tint:#12291f; --debit-tint:#2d1914;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 28px -14px rgba(0,0,0,.7); --hero:#24304a; --accent-ink:var(--marigold); --accent-btn:var(--marigold);}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+::selection{background:var(--marigold);color:var(--marigold-ink)}
+body{background:var(--ground);color:var(--ink);font-family:var(--f-ui);font-size:14px;line-height:1.45;caret-color:var(--marigold);
+  -webkit-font-smoothing:antialiased;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+html[lang="th"] body{font-family:"Noto Sans Thai","Geist",system-ui,sans-serif}
+.app{max-width:440px;margin:0 auto;padding-block:12px 112px}
+.screen{display:flex;flex-direction:column;gap:20px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2px solid var(--marigold);outline-offset:2px;border-radius:8px}
+
+/* top bar */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:40px}
+.top h1{font-size:17px;font-weight:600;letter-spacing:-.02em;margin:0}
+.top .cycle{font-size:13px;color:var(--ink-2)}
+.lang{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:5px 12px;font-size:13px;font-weight:500;display:flex;gap:6px;align-items:center}
+.lang b{color:var(--marigold)}
+.sample{font-size:13px;color:var(--ink-3);margin:-8px 0 0}
+
+/* runway */
+.runway{background:var(--surface);border-radius:20px;box-shadow:var(--shadow);padding:20px 18px 16px;display:flex;flex-direction:column;gap:14px}
+.runway .label{font-size:13px;color:var(--ink-2)}
+.runway .big{font-size:38px;font-weight:600;line-height:1;letter-spacing:-.035em}
+.runway .big small{font-size:17px;color:var(--ink-3);font-weight:500;margin-right:4px}
+.days{display:grid;gap:6px}
+.day{display:flex;flex-direction:column;gap:6px;align-items:center;font-size:11px;color:var(--ink-3)}
+.day i{display:block;width:100%;height:44px;border-radius:8px;background:var(--marigold-tint);position:relative;overflow:hidden}
+.day i::after{content:"";position:absolute;inset:auto 0 0;height:var(--h,100%);background:var(--marigold);border-radius:8px 8px 0 0;opacity:.9}
+.day.today{color:var(--ink);font-weight:600}
+.day.pay i{background:transparent;border:1.5px dashed var(--credit)}
+.day.pay i::after{display:none}
+.day.pay{color:var(--credit);font-weight:600}
+.perday{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:12px;font-size:14px;color:var(--ink-2)}
+.perday b{font-size:17px;color:var(--ink)}
+
+/* ledger math */
+.sec{display:flex;flex-direction:column;gap:8px}
+.sec h2{font-size:14px;font-weight:600;margin:0;display:flex;justify-content:space-between;align-items:baseline}
+.sec h2 span{font-size:13px;font-weight:400;color:var(--ink-2)}
+.ledger{background:var(--surface);border-radius:16px;border:1px solid var(--line);padding:4px 16px}
+.ln{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:14px}
+.ln:last-child{border-bottom:0}
+.ln .k{color:var(--ink-2);display:flex;flex-direction:column}
+.ln .k small{font-size:13px;color:var(--ink-3)}
+.ln.sum{font-weight:600;font-size:14px}
+.ln.sum .k{color:var(--ink)}
+.neg{color:var(--debit)}
+
+.due{display:flex;gap:12px;align-items:center;background:var(--marigold-tint);border:1px solid color-mix(in srgb,var(--marigold) 35%,transparent);border-radius:16px;padding:12px 14px;font-size:14px}
+.due .ico{width:36px;height:36px;border-radius:10px;background:var(--marigold);color:var(--marigold-ink);display:grid;place-items:center;flex:none}
+.due .txt{flex:1;display:flex;flex-direction:column}
+.due .txt small{color:var(--ink-2);font-size:13px}
+.due button{border:0;background:var(--surface);border-radius:99px;padding:7px 12px;font-size:13px;font-weight:600;box-shadow:var(--shadow)}
+
+/* pockets */
+.pk{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:14px}
+.pk:last-child{border-bottom:0}
+.pk .meta{grid-column:1/-1;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-3)}
+.pk .meta .bar{flex:1;height:4px;border-radius:4px;background:var(--line);overflow:hidden}
+.pk .meta .bar i{display:block;height:100%;background:var(--marigold);border-radius:4px}
+
+/* tx */
+.tx{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.tx:last-child{border-bottom:0}
+.tx .av{width:34px;height:34px;border-radius:10px;background:var(--raise);display:grid;place-items:center;color:var(--ink-2);flex:none}
+.tx .body{flex:1;min-width:0;display:flex;flex-direction:column;font-size:14px}
+.tx .body small{font-size:13px;color:var(--ink-3)}
+.pill{display:inline-block;font-size:11px;font-weight:500;padding:1px 7px;border-radius:99px;background:var(--raise);color:var(--ink-2);margin-left:4px}
+
+.btn{border:0;border-radius:14px;padding:14px;background:var(--marigold);color:var(--marigold-ink);font-weight:600;font-size:14px;width:100%;transition:transform .15s cubic-bezier(.2,.8,.2,1)}
+.btn:active{transform:scale(.98)}
+.btn.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+input{font:inherit;color:var(--ink)}
+.field{border:1px solid var(--line);background:var(--raise);border-radius:10px;padding:7px 10px;font-family:var(--f-num);font-variant-numeric:tabular-nums;text-align:right;width:120px}
+.field:focus{outline:2px solid var(--marigold);outline-offset:0;border-color:transparent}
+.hint{font-size:13px;color:var(--ink-2);margin:0}
+
+/* add screen */
+.amtwrap{display:flex;align-items:baseline;justify-content:center;gap:6px;padding:14px 0 6px}
+.amtwrap span{font-size:24px;color:var(--ink-3);font-family:var(--f-num)}
+.amount{border:0;background:transparent;font-family:var(--f-num);font-size:36px;font-weight:600;letter-spacing:-.04em;width:7ch;text-align:left;padding:0}
+.amount:focus{outline:0}
+.amount::placeholder{color:var(--line)}
+.group{display:flex;flex-direction:column;gap:8px}
+.group > span{font-size:13px;color:var(--ink-2)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:7px 13px;font-size:14px;transition:background .15s,color .15s}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);background:var(--raise);border-radius:12px;padding:3px;gap:3px}
+.seg button{border:0;background:transparent;border-radius:9px;padding:9px 4px;font-size:13px;font-weight:500;color:var(--ink-2)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:14px;padding:4px 0}
+.switch input[type=checkbox]{appearance:none;width:42px;height:26px;border-radius:99px;background:var(--line);position:relative;cursor:pointer;transition:background .2s;flex:none}
+.switch input[type=checkbox]::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s cubic-bezier(.2,.8,.2,1);box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.switch input[type=checkbox]:checked{background:var(--credit)}
+.switch input[type=checkbox]:checked::after{transform:translateX(16px)}
+input[type=date]{border:1px solid var(--line);background:var(--raise);border-radius:10px;padding:6px 10px;font-size:14px}
+.routes{background:var(--credit-tint);border-radius:16px;padding:6px 14px}
+.routes .ln{border-color:color-mix(in srgb,var(--credit) 20%,transparent)}
+.routes .ln b{font-weight:600;text-align:right}
+.routes h3{font-size:13px;font-weight:600;color:var(--credit);margin:8px 0 0;display:flex;gap:6px;align-items:center}
+
+/* plan */
+.split{display:flex;height:10px;border-radius:6px;overflow:hidden;gap:2px}
+.split i{display:block;height:100%}
+.legend{display:flex;justify-content:space-between;font-size:13px;color:var(--ink-2)}
+.legend b{color:var(--ink);font-weight:600}
+.al{display:grid;grid-template-columns:auto 1fr auto;gap:2px 12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.al:last-child{border-bottom:0}
+.al .ck{appearance:none;width:24px;height:24px;border-radius:7px;border:1.5px solid var(--ink-3);display:grid;place-items:center;cursor:pointer;grid-row:span 2;transition:background .15s,border-color .15s}
+.al .ck:checked{background:var(--credit);border-color:var(--credit)}
+.al .ck:checked::after{content:"";width:6px;height:11px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.al .nm{font-size:14px;font-weight:500}
+.al .amt{font-size:14px;font-weight:600;text-align:right}
+.al .sub{font-size:13px;color:var(--ink-3);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.al .sub .field{width:92px;padding:3px 8px;font-size:13px}
+.al.done .nm,.al.done .amt{color:var(--ink-3);text-decoration:line-through}
+
+/* tabs (segmented, reused) */
+.tabs2{display:grid;grid-template-columns:1fr 1fr;background:var(--raise);border-radius:12px;padding:3px;gap:3px}
+.tabs2 button{border:0;background:transparent;border-radius:9px;padding:8px;font-size:14px;font-weight:500;color:var(--ink-2)}
+.tabs2 button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+
+/* summary */
+.stat3{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.stat3 div{background:var(--surface);padding:12px;display:flex;flex-direction:column;gap:2px}
+.stat3 span{font-size:13px;color:var(--ink-2)}
+.stat3 b{font-size:16px;font-weight:600}
+.cat{display:grid;grid-template-columns:1fr auto;gap:6px 12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:14px}
+.cat:last-child{border-bottom:0}
+.cat .of{font-size:13px;color:var(--ink-3)}
+.cat .track{grid-column:1/-1;height:6px;border-radius:6px;background:var(--raise);overflow:hidden}
+.cat .track i{display:block;height:100%;border-radius:6px;background:var(--marigold)}
+.cat.over .track i{background:var(--debit)}
+.cat.over .amt{color:var(--debit)}
+.chart{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;align-items:end;height:150px;padding-top:8px}
+.chart button{border:0;background:none;padding:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;font-size:11px;color:var(--ink-3)}
+.chart button i{display:block;width:100%;border-radius:5px 5px 2px 2px;background:color-mix(in srgb,var(--marigold) 35%,var(--raise));transition:background .2s}
+.chart button[aria-pressed="true"]{color:var(--ink);font-weight:600}
+.chart button[aria-pressed="true"] i{background:var(--marigold)}
+.chart button.future i{background:transparent;border:1px dashed var(--line)}
+.budgetline{position:relative}
+.budgetline::after{content:"";position:absolute;left:0;right:0;bottom:calc(var(--b) + 18px);border-top:1px dashed var(--ink-3);pointer-events:none}
+
+/* settings */
+.note{border:1px solid var(--line);background:var(--raise);border-radius:12px;padding:10px 12px;font-size:14px;width:100%}
+.note:focus{outline:2px solid var(--marigold);outline-offset:0;border-color:transparent}
+.chip .pill{margin-left:6px}
+.ed{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.ed:last-child{border-bottom:0}
+.ed input.name{flex:1;min-width:0;border:1px solid transparent;background:transparent;border-radius:8px;padding:6px 8px;font-size:14px}
+.ed input.name:hover{border-color:var(--line)}
+.ed input.name:focus{border-color:var(--marigold);background:var(--raise);outline:0}
+.ed .field{width:88px;padding:5px 8px;font-size:13px}
+.act{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 9px;font-size:13px;font-weight:500;color:var(--ink-2);white-space:nowrap}
+.ed.arch input.name{color:var(--ink-3);text-decoration:line-through}
+.ed .warn{font-size:13px;color:var(--debit);flex-basis:100%;padding-left:8px}
+.field.mini{width:54px;text-align:center}
+.xbtn{border:0;background:transparent;color:var(--debit);font-size:17px;line-height:1;padding:4px 6px;cursor:pointer}
+.ln .lnsub{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;color:var(--ink-2)}
+.ln .lnsub .sel{max-width:none}
+.addrow{display:flex;gap:8px;padding:10px 0 4px}
+.addrow input{flex:1;min-width:0;border:1px dashed var(--line);background:transparent;border-radius:10px;padding:8px 10px;font-size:14px}
+.addrow button{border:0;background:var(--ink);color:var(--ground);border-radius:10px;padding:8px 14px;font-weight:600;font-size:14px}
+.swatches{display:flex;flex-wrap:wrap;gap:10px;padding:6px 0}
+.sw{width:40px;height:40px;border-radius:12px;border:2px solid transparent;background:var(--c);box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);display:grid;place-items:center}
+.sw[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 3px var(--surface)}
+.sw.custom{background:conic-gradient(from 0deg,#e5484d,#f4a52a,#3fb67b,#3b82f6,#8b5cf6,#e5484d);position:relative;overflow:hidden}
+.sw.custom input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.seg3{grid-template-columns:repeat(3,1fr)}
+.preview{display:flex;gap:10px;align-items:center;font-size:13px;color:var(--ink-2)}
+.preview .btn{width:auto;padding:9px 16px;font-size:14px}
+
+/* history */
+.day-h{font-size:13px;font-weight:600;color:var(--ink-2);display:flex;justify-content:space-between;padding:0 2px 6px}
+.hrow{width:100%;border:0;background:none;text-align:left;display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.ledger > .hwrap:last-child .hrow{border-bottom:0}
+.hrow .av{width:34px;height:34px;border-radius:10px;background:var(--raise);display:grid;place-items:center;color:var(--ink-2);flex:none}
+.tl{list-style:none;margin:0 0 10px 17px;padding:2px 0 4px 18px;border-left:2px solid var(--line);display:flex;flex-direction:column;gap:9px;font-size:13px}
+.tl li{position:relative;display:flex;justify-content:space-between;gap:10px}
+.tl li::before{content:"";position:absolute;left:-25px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2px solid var(--ink-3)}
+.tl li.ok::before{background:var(--credit);border-color:var(--credit)}
+.tl li.wait::before{border-color:var(--marigold);border-style:dashed}
+.tl li span:first-child{color:var(--ink-2)}
+.tl li b{font-weight:500;text-align:right}
+/* density */
+.mjump{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;gap:6px;overflow-x:auto;padding:8px 0;background:var(--ground);scrollbar-width:none}
+.mjump button{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:5px 12px;font-size:13px;white-space:nowrap}
+.crow{width:100%;border:0;background:none;text-align:left;display:grid;grid-template-columns:44px 1fr auto;gap:8px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.crow .dt{color:var(--ink-3);font-size:13px;font-family:var(--f-num)}
+.crow .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow .nm em{font-style:normal;color:var(--ink-3)}
+.crow .dotw{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--marigold);margin-left:6px;vertical-align:middle}
+.mon{width:100%;border:0;background:none;text-align:left;display:flex;justify-content:space-between;align-items:baseline;padding:12px 0;border-bottom:1px solid var(--line)}
+.mon b{font-size:14px;font-weight:600}.mon small{color:var(--ink-3);font-size:13px;margin-left:8px}
+.mon .chev{transition:transform .2s;display:inline-block;margin-left:8px;color:var(--ink-3)}
+.mon[aria-expanded="true"] .chev{transform:rotate(90deg)}
+.tinfo{margin:0 0 12px;background:var(--raise);border-radius:10px;padding:8px 12px;display:flex;flex-direction:column;gap:4px;font-size:13px}
+.tinfo div{display:flex;justify-content:space-between;gap:10px}.tinfo span{color:var(--ink-3)}.tinfo b{font-weight:500}
+/* nav */
+nav.bar{position:fixed;inset:auto 0 0;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);
+  border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+nav.bar .in{max-width:440px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+nav.bar button{border:0;background:none;padding:10px 0 12px;font-size:13px;font-weight:500;color:var(--ink-3);display:flex;flex-direction:column;align-items:center;gap:3px}
+nav.bar button[aria-current="page"]{color:var(--ink)}
+nav.bar button[aria-current="page"] > svg{color:var(--marigold)}
+nav.bar .add{width:52px;height:52px;border-radius:16px;background:var(--marigold);color:var(--marigold-ink);display:grid;place-items:center;margin-top:-22px;box-shadow:0 6px 14px -6px rgba(0,0,0,.35)}
+nav.bar .add svg{width:24px;height:24px;stroke-width:2.2}
+.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--ground);padding:9px 16px;border-radius:99px;font-size:14px;font-weight:500;box-shadow:var(--shadow)}
+@media (prefers-reduced-motion:no-preference){
+  .screen{animation:rise .32s cubic-bezier(.16,1,.3,1)}
+  @keyframes rise{from{opacity:.5;transform:translateY(6px)}}
+  .day i::after{animation:fill .6s cubic-bezier(.16,1,.3,1) both}
+  @keyframes fill{from{height:0}}
+}
+/* v2 additions */
+.h{font-size:14px;font-weight:600;color:var(--ink)}
+.pos{color:var(--credit)} .mv{color:var(--ink-2)}
+.big.neg{color:var(--debit)}
+.due.over{background:var(--debit-tint);border-color:color-mix(in srgb,var(--debit) 40%,transparent)}
+.due.over .ico{background:var(--debit)}
+.prow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.prow:last-child{border-bottom:0}
+.prow .pl{flex:1;min-width:0;display:flex;flex-direction:column;font-size:14px}
+.prow .pl small{font-size:13px;color:var(--ink-2)}
+.prow .field{width:96px}
+.act.danger{color:var(--debit);border-color:color-mix(in srgb,var(--debit) 40%,var(--line))}
+.racts{display:flex;gap:8px;justify-content:flex-end;padding:0 0 12px}
+.hwrap{border-bottom:1px solid var(--line)}
+.hwrap:last-child{border-bottom:0}
+.hwrap .crow{border-bottom:0}
+.crow .mv,.crow .pos{white-space:nowrap}
+.chips .chip{max-width:100%}
+.msg{border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:6px}
+.msg.err{background:var(--debit-tint);color:var(--debit)}
+.msg.warn{background:var(--marigold-tint);color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.sel{font:inherit;border:1px solid var(--line);background:var(--raise);color:var(--ink);border-radius:10px;padding:7px 10px;max-width:60%}
+#srcs.chips,#incTo.chips{gap:6px}
+.chart{height:auto;min-height:150px}
+.chart .cv{font-size:13px;color:var(--ink-3)}
+.toast{display:flex;gap:12px;align-items:center}
+.toast.upd{bottom:auto;top:calc(12px + env(safe-area-inset-top,0px))}
+#setupMsg:empty{display:none}
+.toast button{border:0;background:transparent;color:var(--marigold);font-weight:700;padding:0}
+/* v3 layout */
+.runway details.why{border-top:1px solid var(--line);padding-top:10px}
+.why summary{cursor:pointer;font-size:13px;color:var(--marigold);font-weight:600;list-style:none}
+.why summary::after{content:" ▾"}.why[open] summary::after{content:" ▴"}
+.why #calc .ln{padding:8px 0;font-size:14px}
+.qa{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.qa button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding:0}
+.qa button span{width:52px;height:52px;border-radius:16px;background:var(--surface);box-shadow:var(--shadow);display:grid;place-items:center;color:var(--marigold)}
+.qa button b{font-size:13px;font-weight:500;color:var(--ink-2)}
+.lnk{border:0;background:none;color:var(--marigold);font-size:13px;font-weight:600;padding:0}
+.todos{display:flex;flex-direction:column;gap:8px}
+.todo{display:flex;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--marigold);border-radius:14px;padding:11px 12px;font-size:14px}
+.todo.red{border-left-color:var(--debit)}.todo.green{border-left-color:var(--credit)}.todo.grey{border-left-color:var(--ink-3)}
+.todo .ico{width:34px;height:34px;border-radius:10px;background:var(--raise);display:grid;place-items:center;color:var(--ink-2);flex:none}
+.todo .txt{flex:1;min-width:0;display:flex;flex-direction:column}.todo .txt small{font-size:13px;color:var(--ink-3)}
+.todo button{border:0;background:var(--marigold-tint);color:var(--ink);border-radius:99px;padding:7px 12px;font-size:13px;font-weight:600;white-space:nowrap}
+.todos .none{font-size:13px;color:var(--ink-3);padding:4px 2px;margin:0}
+.strip{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px;scrollbar-width:none;margin:0 -2px}
+.strip button{flex:0 0 128px;border:1px solid var(--line);background:var(--surface);border-radius:16px;padding:12px;text-align:left;display:flex;flex-direction:column;gap:6px}
+.strip small{font-size:13px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.strip b{font-size:16px;font-weight:600}
+.strip button.cardk{background:color-mix(in srgb,var(--debit) 8%,var(--surface))}
+.btn.link{background:none;border:0;color:var(--marigold);padding:8px 2px;text-align:left;font-size:14px}
+.glbl{font-size:13px;font-weight:600;letter-spacing:.04em;color:var(--ink-3);text-transform:uppercase;margin:6px 2px -10px}
+.fold h2{cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px 14px}
+.fold h2::after{content:"›";color:var(--ink-3);font-size:17px;line-height:1;transition:transform .2s;margin-left:8px}
+.fold.open h2::after{transform:rotate(90deg)}
+.fold h2 .h{flex:1}
+.fold:not(.open) > :not(h2){display:none!important}
+.fold.open h2{border-radius:14px 14px 4px 4px}
+.hs{margin-top:-6px}
+#setupAccts .field{width:130px!important}
+/* v3.1: mockup look */
+.runway{background:var(--hero);color:#fff;border:0}
+.runway .label,.runway .perday,.runway .day{color:rgba(255,255,255,.7)}
+.runway .big small{color:rgba(255,255,255,.55)}
+.runway .day.today,.runway .perday b{color:#fff}
+.runway .day.pay{color:#6fe0ad}.runway .day.pay i{border-color:#6fe0ad}
+.runway .day i{background:rgba(255,255,255,.12)}
+.runway .perday,.runway details.why{border-color:rgba(255,255,255,.14)}
+.runway .big.neg{color:#ff9b85}
+.why #calc .ln{border-color:rgba(255,255,255,.1)}.why #calc .k,.why #calc .k small{color:rgba(255,255,255,.7)}.why #calc .neg{color:#ffad99}.why #calc .ln.sum .k{color:#fff}
+.sico{width:34px;height:34px;border-radius:10px;background:var(--raise);display:grid;place-items:center;color:var(--ink-2);flex:none;margin-right:12px}
+.stxt{flex:1;display:flex;flex-direction:column;min-width:0}.stxt .ssub{font-size:13px;font-weight:400;color:var(--ink-3)}
+.fold h2{align-items:center;justify-content:flex-start}
+.fold:not(.open) h2 > span:not(.sico){display:none}
+#s-set.sub > :not(.top):not(.open){display:none!important}
+#s-set.sub .fold.open h2{cursor:default;border-radius:14px}
+#s-set.sub .fold.open h2::after{display:none}
+.wrow{width:100%;border:0;background:none;text-align:left;display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:14px}
+.wrow:last-child{border-bottom:0}.wrow .k{flex:1;display:flex;flex-direction:column;min-width:0}.wrow .k small{font-size:13px;color:var(--ink-3)}
+.wrow .chev{color:var(--ink-3)}
+nav.bar button:focus{outline:none}
+#s-set:not(.sub){gap:0}
+#s-set:not(.sub) .glbl{margin:20px 2px 8px}
+#s-set:not(.sub) .fold h2{border-radius:0;border-bottom:0}
+#s-set:not(.sub) .glbl + .fold h2{border-radius:14px 14px 0 0}
+#s-set:not(.sub) .fold:has(+ .glbl) h2,#s-set:not(.sub) .fold:has(+ button) h2{border-radius:0 0 14px 14px;border-bottom:1px solid var(--line)}
+#s-set:not(.sub) .glbl + .fold:has(+ .glbl) h2,#s-set:not(.sub) .glbl + .fold:has(+ button) h2{border-radius:14px}
+#s-set:not(.sub) #eraseBtn{margin-top:24px}#s-set:not(.sub) #verInfo{margin-top:12px}
+/* ===== v3.2: mockup visual system ===== */
+:root{--f-ui:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;--f-num:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif}
+body,html[lang="th"] body{font-family:var(--f-ui);font-size:14px}
+.num{font-variant-numeric:tabular-nums;letter-spacing:0}
+.app{padding-block:14px 104px}
+.screen{gap:16px}
+.top{min-height:0;margin:4px 0 -2px}.top h1{font-size:17px;font-weight:700;letter-spacing:0}.top .cycle{font-size:13px;color:var(--ink-3)}
+.lang{padding:5px 10px;font-size:13px;border:0;box-shadow:var(--shadow)}
+.sample{margin:-6px 0 0}
+.runway{border-radius:20px;padding:18px;gap:0;box-shadow:var(--shadow)}
+.runway .label{font-size:13px}
+.runway .big{font-size:38px;font-weight:700;letter-spacing:-.5px;line-height:1.15;margin:2px 0}
+.runway .big small{font-size:38px;color:inherit;font-weight:700;margin:0}
+.rbar{height:6px;background:rgba(255,255,255,.15);border-radius:9px;margin:12px 0 8px;overflow:hidden}
+.rbar i{display:block;height:100%;background:var(--marigold);border-radius:9px}
+.rrow{display:flex;justify-content:space-between;font-size:13px;color:rgba(255,255,255,.88)}
+.runway details.why{margin-top:10px;padding-top:8px}
+.why summary{font-size:13px;font-weight:500;color:#f4c37a}
+.sec{gap:8px}
+.sec h2{font-size:14px;font-weight:700;align-items:center}.sec h2 .h{font-size:14px;font-weight:700}
+.sec h2 > span:not(.h){font-size:13px}
+.ledger{border:0;border-radius:16px;padding:0 14px;background:var(--surface)}
+.ln{font-size:14px;padding:11px 0}
+.tx{padding:11px 0}.tx .av,.hrow .av{width:34px;height:34px;border-radius:10px}
+.todo{border:0;border-left:4px solid var(--marigold);border-radius:14px;padding:12px}
+.todo .txt span{font-size:14px}
+.todo button{background:var(--marigold-tint);color:color-mix(in srgb,var(--marigold) 70%,#000);font-size:13px;padding:6px 12px;font-weight:600}
+.strip{gap:10px}
+.strip button{flex:0 0 132px;border:0;box-shadow:var(--shadow);padding:12px;gap:6px}
+.strip b{font-size:16px;font-weight:700}
+.strip button.cardk{background:linear-gradient(135deg,#3b2a6b,#6d3aa8);color:#fff}.strip button.cardk small{color:#ddd}
+.lnk{font-weight:400}
+.wrow{padding:11px 0}
+.fold h2{border:0;padding:11px 14px}
+#s-set:not(.sub) .fold h2{border-bottom:1px solid var(--line)}
+.sico{background:var(--raise)}
+nav.bar{background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none}
+nav.bar button{font-size:11px;padding:8px 0 12px}
+nav.bar button[aria-current="page"]{font-weight:600}
+nav.bar .add{width:54px;height:54px;border-radius:18px;margin-top:-26px}
+.btn{border-radius:14px;padding:13px;font-size:14px}
+.chip{font-size:13px;padding:6px 12px}
+.amount{font-family:var(--f-num);font-weight:700}
+.field{font-family:var(--f-num)}
+.mon b{font-size:14px}
+.crow{font-size:14px}
+.rrow{margin-top:6px}
+.why summary:focus:not(:focus-visible),button:focus:not(:focus-visible){outline:none}
+.pgoal{flex-basis:100%;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:4px 0 6px 8px}
+.pgoal label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink-3)}
+.pgoal .field{width:100%;text-align:left}
+.pgoal .rep{grid-column:1/-1;flex-direction:row;align-items:center;gap:6px;font-size:13px;color:var(--ink-2)}
+.pgoal .pline{grid-column:1/-1;font-size:13px;color:var(--ink-2);background:var(--raise);border-radius:8px;padding:6px 9px}
+@media (max-width:380px){.pgoal{grid-template-columns:1fr 1fr}}
+.brow{flex-wrap:wrap;gap:4px 6px}
+.brow .bfrom{flex-basis:100%;font-size:13px;color:var(--ink-3);display:flex;align-items:center;gap:6px;margin-top:-2px}
+.brow .bfrom .sel{padding:2px 6px;font-size:13px;border:0;background:none;color:var(--marigold);font-weight:600}
+.warnline{flex-basis:100%;font-size:13px;color:var(--debit);background:var(--debit-tint);border-radius:8px;padding:6px 9px}
+#setupAccts .ln,#setupBills .ln{padding:8px 0}
+.todo.danger{background:var(--debit-tint);border-left-color:var(--debit)}
+.todo.danger .txt span{color:var(--debit);font-weight:600}.todo.danger .ico{background:var(--debit);color:#fff}
+.todo.danger button{background:var(--debit);color:#fff}
+.strip button.negk{box-shadow:inset 0 0 0 1.5px var(--debit)}.strip button.negk b{color:var(--debit)}
+.strip{cursor:grab;user-select:none}
+/* entry screen: same white cards as the other screens */
+#s-add .group,#full > .switch{background:var(--surface);border-radius:14px;padding:12px 14px}
+#s-add .group .note,#s-add .group .addrow input{background:var(--raise)}
+#s-add .amtwrap{background:var(--surface);border-radius:16px;padding:14px 0 10px}
+#s-add .group > span{font-weight:600;color:var(--ink)}
+/* v3.3 critique fixes */
+.lnk,.btn.link,.brow .bfrom .sel{color:var(--accent-ink)}
+.btn:not(.ghost):not(.link){background:var(--accent-btn)}
+.todo,.todo.red,.todo.green,.todo.grey,.todo.danger{border:0}
+.todo .ico{color:var(--accent-ink);background:var(--marigold-tint)}
+.todo.red{background:color-mix(in srgb,var(--debit) 7%,var(--surface))}.todo.red .ico{color:var(--debit);background:var(--debit-tint)}
+.todo.green .ico{color:var(--credit);background:var(--credit-tint)}
+.todo.grey .ico{color:var(--ink-2);background:var(--raise)}
+.todo button{color:var(--accent-ink)}
+.todo.danger button{color:#fff}
+#s-add .amount{color:var(--ink)}#s-add .amount::placeholder{color:var(--ink-3)}
+.after{margin:-8px 0 0;text-align:center;font-size:13px;color:var(--ink-2)}.after b{color:var(--ink)}.after b.neg{color:var(--debit)}
+.more{background:var(--surface);border-radius:14px;padding:12px 14px}
+.more summary{cursor:pointer;font-weight:600;font-size:14px;list-style:none;display:flex;align-items:baseline;gap:8px}
+.more summary::after{content:"›";margin-left:auto;color:var(--ink-3);transition:transform .2s}.more[open] summary::after{transform:rotate(90deg)}
+.more summary small{font-weight:400;color:var(--ink-3);font-size:13px}
+.more[open] summary{margin-bottom:10px}
+#s-add .more .group{padding:8px 0 0;background:none}
+.chip.morec{border-style:dashed;color:var(--ink-2)}
+.empty{font-size:13px;color:var(--ink-2);text-align:center;padding:18px 8px;margin:0}
+#s-set{padding-bottom:40px}
+/* v3.4 phone ergonomics */
+#s-home #lang{display:none}
+#s-add #save{position:sticky;bottom:calc(68px + env(safe-area-inset-bottom,0px));z-index:4;box-shadow:0 8px 20px -8px rgba(0,0,0,.35)}
+#s-add{padding-bottom:8px}
+input,select,textarea,.note,.field,.sel,input[type=date]{font-size:16px}
+#s-add .amount{font-size:36px}
+.chip{min-height:44px;padding:8px 14px}
+.seg button,.tabs2 button{min-height:44px}
+.act,.lang,.todo button,.xbtn{min-height:44px;min-width:44px}
+.lnk{min-height:44px;padding:0 4px;display:inline-flex;align-items:center}
+.al .ck{width:30px;height:30px}
+.al .sub .field{width:110px}
+.ed .field,.prow .field{min-height:40px}
+nav.bar button{font-size:13px}.pill{font-size:13px}
+.ssub,small{font-size:13px}
+.todo.danger{background:var(--debit-tint)}
+.todo.danger .txt span{color:var(--ink);font-weight:600}.todo.danger .txt small{color:var(--ink-2)}
+.todo.danger .ico{background:var(--surface);color:var(--debit)}
+.todo.danger button{background:var(--surface);color:var(--debit);box-shadow:inset 0 0 0 1.5px var(--debit)}
+nav.bar button{position:relative}
+nav.bar button .dot{position:absolute;top:8px;left:calc(50% + 6px);width:8px;height:8px;border-radius:50%;background:var(--debit);box-shadow:0 0 0 2px var(--surface)}
+.strip button.negk{box-shadow:var(--shadow)}.strip button.negk small::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--debit);margin-right:6px;vertical-align:middle}
+#hfBox{padding:4px 14px}#hfBox summary{min-height:44px;align-items:center}
+.strip{scroll-snap-type:x mandatory}.strip button{scroll-snap-align:start}
+.addrow input,.addrow button{min-height:44px;font-size:16px}
+input[type=date]{min-height:44px}
+.more summary{min-height:44px;align-items:center}
+.crow,.hrow,.wrow,.mon{min-height:44px}
+.field,.sel,#s-wallet select{min-height:44px}
+.al .sub .field{font-size:16px;min-height:44px}
+.al .ck{width:36px;height:36px}
+#s-plan [data-back]{min-height:44px}
+summary{min-height:44px;display:flex;align-items:center}
+.btn.link{min-height:44px}
+.prow .field,.ed .field{min-height:44px}
+.al .ck{width:44px;height:44px;border-radius:10px}
+#mjump button{min-height:44px}
+/* keypad quick entry */
+#full{display:flex;flex-direction:column;gap:16px}
+#quick{display:flex;flex-direction:column;gap:8px;margin-top:-6px}
+#quick[hidden]{display:none!important}
+.qamt{text-align:center}
+.qv{font-size:44px;font-weight:700;letter-spacing:-.5px;line-height:1.15}.qv small{font-size:26px;color:var(--ink-3);margin-right:4px;font-weight:600}
+.qamt .after{margin:0}
+.qmeta{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.qmeta button{border:0;background:var(--surface);border-radius:99px;min-height:44px;padding:0 12px;font-size:13px;color:var(--ink-2)}
+.qmeta button b{color:var(--ink);font-weight:600}
+.qhint{text-align:center;font-size:13px;color:var(--ink-3);margin:0}
+.qcats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.qcat{border:0;background:var(--surface);border-radius:14px;min-height:60px;font-size:13px;color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px;transition:transform .12s}
+.qcat svg{width:20px;height:20px;color:var(--accent-ink)}
+.qcat span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qcat:active{transform:scale(.96)}
+.qcats.ready .qcat:not(.qmore){box-shadow:inset 0 0 0 2px var(--marigold)}
+.qmore{color:var(--ink-2)}
+.qpad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:color-mix(in srgb,var(--ink) 7%,var(--ground));border-radius:16px;padding:6px;margin-top:4px}
+.qpad button{border:0;background:var(--surface);border-radius:10px;min-height:50px;font-size:24px;font-weight:500;color:var(--ink)}
+.qpad button.fn{background:transparent;font-size:18px;color:var(--ink-2)}
+.qsheet{position:fixed;inset:0;z-index:20;background:rgba(10,14,22,.35);display:flex;align-items:flex-end}
+.qsheet[hidden]{display:none!important}
+.qsbox{width:100%;max-width:440px;margin:0 auto;background:var(--surface);border-radius:20px 20px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;max-height:80vh;overflow:auto}
+.qsbox h3{margin:0;font-size:15px}
+.qsrow{display:flex;flex-wrap:wrap;gap:8px}
+#s-add:has(#quick:not([hidden])){min-height:calc(100dvh - 130px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}
+#quick{flex:1}.qpad{margin-top:auto}
+@media (max-height:720px){.qpad button{min-height:44px}.qcat{min-height:50px}.qv{font-size:36px}#quick{gap:6px}}
+/* guide */
+.helplist{display:flex;flex-direction:column;gap:8px}
+.helplist details{background:var(--surface);border-radius:14px;padding:4px 14px}
+.helplist summary{font-weight:600;font-size:15px;cursor:pointer;list-style:none;justify-content:space-between}
+.helplist summary::after{content:"›";color:var(--ink-3);transition:transform .2s}.helplist details[open] summary::after{transform:rotate(90deg)}
+.helpbody p,.helplist p{margin:0 0 10px;font-size:15px;line-height:1.6;color:var(--ink)}
+.helpbody p:last-child,.helplist p:last-child{margin-bottom:0}
+.helplist details[open]{padding-bottom:12px}
+.qbtn{border:0;background:var(--raise);color:var(--ink-2);width:44px;height:44px;margin:-12px -10px -12px 0;border-radius:50%;font-size:13px;font-weight:700;display:inline-grid;place-items:center;flex:none;background-clip:content-box;padding:10px}
+.runway .qbtn{background-color:rgba(255,255,255,.14);color:#fff}
+.tour{position:fixed;inset:0;z-index:30;background:rgba(10,14,22,.55);display:flex;align-items:flex-end;padding:16px 16px calc(24px + env(safe-area-inset-bottom,0px))}
+.tour[hidden]{display:none!important}
+.tourbox{width:100%;max-width:420px;margin:0 auto;background:var(--surface);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:10px}
+.tourbox h3{margin:0;font-size:19px}.tourbox p{margin:0;font-size:15px;line-height:1.6}
+.tstep{color:var(--ink-3);font-size:13px!important}
+.tdots{display:flex;gap:6px}.tdots i{width:8px;height:8px;border-radius:50%;background:var(--line)}.tdots i.on{background:var(--marigold);width:20px;border-radius:4px}
+.tbtns{display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:6px}
+.qpad button{min-height:clamp(50px,6.2dvh,60px)}.qcat{min-height:clamp(60px,7dvh,68px)}
+@media (max-height:720px){.qpad button{min-height:44px}.qcat{min-height:50px}}
+/* v3.6 */
+.qcat[aria-pressed="true"]{background:var(--ink);color:var(--surface)}.qcat[aria-pressed="true"] svg{color:var(--marigold)}
+#qSave{min-height:52px;margin-top:auto}#qSave:disabled{opacity:1;background:var(--raise);color:var(--ink-3)}
+.qpad{margin-top:6px}
+.herowhy{margin:8px 0 0;display:flex;align-items:center;gap:10px;font-size:13px;color:#ffd2c7;background:rgba(255,255,255,.08);border-radius:10px;padding:6px 6px 6px 10px}
+.herowhy span{flex:1}.herowhy button{border:0;border-radius:99px;min-height:44px;padding:0 14px;background:#fff;color:var(--debit);font-weight:600;font-size:13px}
+/* v3.7 */
+body.on-add nav.bar [data-go="add"]{visibility:hidden}
+#qSave{margin-top:6px}.qpad{margin-top:auto}
+#quick{gap:6px}
+.herowhy{display:block}
+.qpad button{min-height:clamp(48px,5.6dvh,58px)}.qcat{min-height:clamp(54px,6.2dvh,66px)}
+@media (max-height:720px){.qpad button{min-height:44px}.qcat{min-height:50px}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-split" viewBox="0 0 24 24"><path d="M12 3v6M12 9l-6 6v6M12 9l6 6v6"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 15h3"/></symbol>
+  <symbol id="i-food" viewBox="0 0 24 24"><path d="M7 3v8a2 2 0 0 0 2 2v8M11 3v8M7 7h4M16 3c-1.5 2-2 4-2 7h3V3zM17 10v11"/></symbol>
+  <symbol id="i-fuel" viewBox="0 0 24 24"><path d="M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M4 21h12M8 8h4M15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V9l-3-3"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3L5 14h6l-1 7 8-11h-6z"/></symbol>
+  <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-route" viewBox="0 0 24 24"><path d="M5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM19 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM7 17h6a3 3 0 0 0 0-6h-2a3 3 0 0 1 0-6h6"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20h16M7 16v-5M12 16V6M17 16v-8"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+  <symbol id="i-in" viewBox="0 0 24 24"><path d="M12 4v12M6 10l6 6 6-6M5 20h14"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M12 20V8M6 14l6-6 6 6M5 4h14"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h14l-4-4M20 16H6l4 4"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h11v4M4 7v11a2 2 0 0 0 2 2h14V9H6a2 2 0 0 1-2-2zM16 14.5h.01"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8zM7.5 7.5h.01"/></symbol>
+  <symbol id="i-pig" viewBox="0 0 24 24"><path d="M5 11a7 6 0 0 1 13-1h2v4h-2a7 6 0 0 1-3 3v3h-3v-2H9v2H6v-3.5A6 6 0 0 1 5 11zM9 6l-1-3"/></symbol>
+</svg>
+
+<div class="app">
+  <!-- HOME -->
+  <section class="screen" id="s-home">
+    <div class="top">
+      <div><h1 data-en="Payday runway" data-th="ระยะถึงเงินเดือน">Payday runway</h1><div class="cycle" id="cycleLbl"></div></div>
+      <button class="lang" id="lang" aria-label="Switch language"><svg class="i" style="width:16px;height:16px"><use href="#i-globe"/></svg><span id="langLbl">ไทย</span></button>
+    </div>
+    <p class="sample" id="sampleNote" hidden data-en="You are looking at sample data. Erase it in Settings to start with your own." data-th="นี่คือข้อมูลตัวอย่าง ลบได้ในตั้งค่าเพื่อเริ่มใช้ของจริง">Sample data.</p>
+
+    <div class="runway">
+      <div class="label" data-en="Safe to spend until payday" data-th="ใช้ได้จริงถึงเงินเดือน">Safe to spend until payday</div>
+      <div class="big num"><small>฿</small><span id="avail"></span></div>
+      <div class="rrow"><span id="perDayLbl"></span><span id="perDay"></span></div>
+      <p class="herowhy" id="heroWhy" hidden></p>
+      <details class="why" id="why"><summary data-en="Where this number comes from" data-th="ตัวเลขนี้มาจากไหน">Where this number comes from</summary><div id="calc"></div></details>
+    </div>
+
+    <div class="sec">
+      <h2><span class="h" data-en="To do" data-th="ต้องจัดการ">To do</span><span id="todoN"></span></h2>
+      <div id="todo" class="todos"></div>
+    </div>
+
+    <div class="sec">
+      <h2><span class="h" data-en="Wallet" data-th="กระเป๋าเงิน">Wallet</span><button class="lnk" id="toWallet" data-en="All ›" data-th="ทั้งหมด ›">All ›</button></h2>
+      <div class="strip" id="strip"></div>
+    </div>
+
+    <div class="sec">
+      <h2><span class="h" data-en="Recent" data-th="รายการล่าสุด">Recent</span><button class="lnk" id="seeAll" data-en="See all ›" data-th="ดูทั้งหมด ›">See all ›</button></h2>
+      <div class="ledger" id="recent"></div>
+    </div>
+  </section>
+
+  <!-- WALLET -->
+  <section class="screen" id="s-wallet" hidden>
+    <div class="top"><div><h1 data-en="Wallet" data-th="กระเป๋า">Wallet</h1><div class="cycle" data-en="Everywhere your money is" data-th="ยอดทุกที่ที่มีเงิน">Everywhere your money is</div></div></div>
+    <div class="sec"><h2><span class="h" data-en="Accounts" data-th="บัญชี">Accounts</span><span class="num" id="wAcctSum"></span></h2><div class="ledger" id="wAccts"></div></div>
+    <div class="sec" id="wCardSec"><h2><span class="h" data-en="Credit cards" data-th="บัตรเครดิต">Credit cards</span><span class="num neg" id="wCardSum"></span></h2><div class="ledger" id="wCards"></div></div>
+    <div class="sec"><h2><span class="h" data-en="MAKE pockets" data-th="กองใน MAKE">MAKE pockets</span><span class="num" id="potSum"></span></h2><div class="ledger" id="pots"></div><button class="btn link" id="toPlan" data-en="Salary split plan ›" data-th="แผนแบ่งเงินเดือน ›">Salary split plan ›</button></div>
+    <div class="sec" id="pplSec">
+      <h2><span class="h" data-en="People" data-th="คนที่ค้างกัน">People</span><span class="num pos" id="pplSum"></span></h2>
+      <div class="ledger" id="ppl"></div>
+      <p class="hint" data-en="Money friends owe you is not counted as safe to spend until it arrives. Change the amount for a partial payment." data-th="เงินที่เพื่อนค้างยังไม่นับเป็นเงินใช้ได้จนกว่าจะได้รับจริง · แก้ตัวเลขได้ถ้าคืนไม่ครบ">Money friends owe you is not counted until it arrives.</p>
+    </div>
+    <div class="sec">
+      <h2><span class="h" data-en="Check against your bank app" data-th="เช็กยอดกับแอปธนาคาร">Check against your bank app</span></h2>
+      <div class="ledger">
+        <div class="ln"><span class="k" data-en="Account" data-th="บัญชี">Account</span><select class="sel" id="recSel"></select></div>
+        <div class="ln"><span class="k" id="recLbl">Balance in the bank app</span><input class="field" id="realScb" type="number" inputmode="decimal" step="0.01"></div>
+        <div class="ln"><span class="k" data-en="Balance in this ledger" data-th="ยอดที่จดไว้">Balance in this ledger</span><span class="num" id="bookScb"></span></div>
+        <div class="ln sum"><span class="k" data-en="Difference" data-th="ส่วนต่าง">Difference</span><span class="num" id="diff"></span></div>
+      </div>
+      <p class="hint" id="diffNote"></p>
+      <button class="btn ghost" id="adjBtn" hidden data-en="Record the difference as an adjustment" data-th="บันทึกส่วนต่างเป็นรายการปรับยอด">Record the difference</button>
+    </div>
+  </section>
+
+  <!-- FIRST-RUN SETUP -->
+  <section class="screen" id="s-setup" hidden>
+    <div class="top"><div><h1 data-en="Let's set your starting point" data-th="ตั้งยอดเริ่มต้น">Let's set your starting point</h1><div class="cycle" data-en="Copy today's balances from your bank apps. Leave blank for 0." data-th="ดูยอดวันนี้จากแอปธนาคาร ช่องที่ไม่มีเว้นว่างได้">Copy today's balances.</div></div><button class="lang" id="lang2" aria-label="Switch language">ไทย / EN</button></div>
+    <div class="sec"><h2><span class="h" data-en="Accounts" data-th="บัญชี">Accounts</span><span data-en="Balance now" data-th="ยอดตอนนี้">Balance now</span></h2><div class="ledger" id="setupAccts"></div>
+      <button class="btn link" id="addSetupAcct" data-en="+ Add an account" data-th="+ เพิ่มบัญชี">Add an account</button>
+      <div class="ledger" style="margin-top:10px">
+      <div class="ln"><span class="k" data-en="Monthly salary" data-th="เงินเดือน">Monthly salary</span><input class="field" id="setupSalary" data-ph-en="Take-home pay" data-ph-th="ยอดที่ได้รับจริง" type="number" inputmode="decimal" step="0.01" min="0"></div>
+      <div class="ln"><span class="k" data-en="Payday (day of month)" data-th="เงินเดือนเข้าวันที่">Payday</span><input class="field mini" id="setupPayday" type="number" inputmode="numeric" min="1" max="31" value="28"></div>
+      <div class="ln"><span class="k" data-en="Salary arrives in" data-th="เงินเดือนเข้าบัญชี">Salary arrives in</span><select class="sel" id="setupSalaryTo"></select></div>
+      <div class="ln"><span class="k" data-en="Money for spending goes to" data-th="เงินที่เหลือไว้ใช้จ่ายโอนไป">Spending account</span><select class="sel" id="setupSpendTo"></select></div></div></div>
+    <div class="sec"><h2><span class="h" data-en="MAKE pockets" data-th="กองใน MAKE">MAKE pockets</span></h2><div class="ledger" id="setupPots"></div>
+      <button class="btn link" id="addSetupPot" data-en="+ Add a pocket" data-th="+ เพิ่มกอง">Add a pocket</button>
+      <p class="hint" data-en="Use the same names as in MAKE. Goals can be set or changed later in Settings." data-th="ตั้งชื่อให้ตรงกับใน MAKE · ตั้งหรือแก้เป้าทีหลังได้ในตั้งค่า">Use the same names as in MAKE.</p></div>
+    <div class="sec"><h2><span class="h" data-en="Credit cards" data-th="บัตรเครดิต">Credit cards</span></h2><div id="setupCards" style="display:flex;flex-direction:column;gap:10px"></div>
+      <button class="btn link" id="addSetupCard" data-en="+ Add a card" data-th="+ เพิ่มบัตร">Add a card</button>
+      <p class="hint" data-en="No card? Remove it with ×. Days can be changed later in Settings." data-th="ไม่มีบัตรกด × ลบได้ · เปลี่ยนวันทีหลังได้ในตั้งค่า">You can change statement days later.</p></div>
+    <div class="sec"><h2><span class="h" data-en="Monthly must-pay bills" data-th="รายจ่ายจำเป็นทุกเดือน">Monthly bills</span><span data-en="Per month" data-th="ต่อเดือน">Per month</span></h2><div class="ledger" id="setupBills"></div>
+      <button class="btn link" id="addSetupBill" data-en="+ Add a bill" data-th="+ เพิ่มรายการ">Add a bill</button>
+      <p class="hint" data-en="Set aside each cycle until you record paying it. Leave blank if it does not apply." data-th="แอปกันเงินส่วนนี้ไว้ทุกรอบจนกว่าจะจดว่าจ่าย · ไม่มีเว้นว่างได้">Set aside each cycle until paid.</p></div>
+    <p class="msg err" id="setupMsg" role="alert" style="margin:0" ></p>
+    <button class="btn" id="startBtn" data-en="Start" data-th="เริ่มใช้งาน">Start</button>
+    <label class="btn ghost" style="text-align:center;cursor:pointer"><span data-en="Restore from a backup file" data-th="กู้คืนจากไฟล์สำรอง">Restore</span><input type="file" id="importFile2" accept="application/json,.json" hidden></label>
+    <button class="btn ghost" id="sampleBtn" data-en="Just look around with sample data" data-th="ลองดูด้วยข้อมูลตัวอย่างก่อน">Sample data</button>
+  </section>
+
+  <!-- ADD / EDIT -->
+  <section class="screen" id="s-add" hidden>
+    <div class="top"><h1 id="addTitle">New entry</h1><button class="lang" id="cancelEdit" hidden data-en="Cancel" data-th="ยกเลิก">Cancel</button></div>
+    <div class="seg seg3" id="etype" role="group" aria-label="Entry type"></div>
+    <div id="quick" hidden>
+      <div class="qamt"><div class="qv num"><small>฿</small><span id="qv">0</span></div><p class="after" id="qAfter"></p></div>
+      <div class="qmeta"><button type="button" id="qFrom"></button><button type="button" id="qDate"></button><button type="button" id="qMore"></button></div>
+      <p class="qhint" id="qHint"></p>
+      <div class="qcats" id="qCats"></div>
+      <div class="qpad" id="qPad"></div>
+      <button type="button" class="btn" id="qSave" disabled>Save</button>
+    </div>
+    <div id="full">
+    <div class="amtwrap"><span>฿</span><input class="amount" id="amt" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0" aria-label="Amount"></div>
+    <p class="after" id="afterLbl"></p>
+    <label class="switch"><span data-en="Date" data-th="วันที่">Date</span><input type="date" id="date"></label>
+    <label class="switch" id="preRow" hidden><span><span data-en="Paid before I started the app today" data-th="จ่ายไปก่อนเริ่มใช้แอปวันนี้">Paid before I started the app today</span><br><small style="color:var(--ink-3);font-size:13px" data-en="Already in the balances you entered" data-th="ยอดที่กรอกตอนเริ่มหักไปแล้ว">Already in the balances you entered</small></span><input type="checkbox" id="pre"></label>
+    <p class="msg warn" id="preNote" hidden style="background:var(--credit-tint)"></p>
+    <div class="group" id="gBill" hidden><span data-en="Monthly bill? (left to pay this cycle)" data-th="เป็นรายจ่ายประจำไหม? (ยอดที่ยังต้องจ่ายรอบนี้)">Monthly bill?</span><div class="chips" id="billChips"></div></div>
+    <div class="group" id="gFrom"><span data-en="Paid with" data-th="จ่ายด้วย">Paid with</span><div class="chips" id="srcs"></div></div>
+    <div class="group" id="gPot" hidden><span data-en="Which pocket (balance shown)" data-th="กองไหน (ยอดคงเหลือ)">Which pocket</span><div class="chips" id="potChips"></div></div>
+    <div class="group" id="gCat"><span data-en="Category" data-th="หมวด">Category</span><div class="chips" id="cats"></div></div>
+    <details class="more" id="moreBox"><summary><span data-en="More details" data-th="รายละเอียดเพิ่มเติม">More details</span> <small id="moreHint" data-en="place · friends · note" data-th="ร้าน · ออกให้เพื่อน · โน้ต">place · friends · note</small></summary>
+    <div class="group" id="gPlace"><span data-en="Place" data-th="ร้าน">Place</span>
+      <input class="note" id="place" autocomplete="off" data-ph-en="7-Eleven, Lotus…" data-ph-th="7-Eleven, Lotus…" placeholder="7-Eleven, Lotus…">
+      <div class="chips" id="placeChips"></div></div>
+    <div class="group" id="gSplit"><span data-en="Paid for friends too?" data-th="ออกให้เพื่อนด้วยไหม?">Paid for friends too?</span><div class="chips" id="people"></div>
+      <div class="addrow"><input id="newFriend" autocomplete="off" data-ph-en="New name" data-ph-th="ชื่อใหม่" placeholder="New name" aria-label="New name"><button type="button" id="addFriend" data-en="Add" data-th="เพิ่ม">Add</button></div>
+      <div class="ledger" id="shares" hidden></div></div>
+    <div class="group" id="gTo" hidden><span data-en="Received into" data-th="เข้าบัญชี">Received into</span><div class="chips" id="incTo"></div></div>
+    <div class="group" id="gInc" hidden><span data-en="Kind" data-th="ประเภท">Kind</span><div class="chips" id="incCats"></div></div>
+    <label class="switch" id="hoursRow" hidden><span id="hoursLbl">Hours</span><input class="field" id="hours" type="number" inputmode="decimal" step="0.5" min="0"></label>
+    <div class="group" id="gMove" hidden>
+      <label class="switch"><span data-en="From" data-th="จาก">From</span><select id="tFrom" class="sel"></select></label>
+      <label class="switch"><span data-en="To" data-th="ไป">To</span><select id="tTo" class="sel"></select></label>
+    </div>
+    <div class="group"><span data-en="Note" data-th="โน้ต">Note</span><input class="note" id="note" autocomplete="off" data-ph-en="Optional" data-ph-th="ไม่บังคับ" placeholder="Optional"></div>
+    </details>
+
+    <div class="routes" id="where" hidden></div>
+    <div id="msgs" role="alert"></div>
+    <button class="btn" id="save">Save entry</button>
+    <button type="button" class="btn link" id="toQuick" hidden data-en="‹ Back to the keypad" data-th="‹ กลับไปแบบแป้นตัวเลข">‹ Back to the keypad</button>
+    </div>
+    <div class="qsheet" id="qSheet" hidden><div class="qsbox"><h3 id="qsT"></h3><div class="qsrow" id="qsRow"></div><div id="qsExtra"></div><button type="button" class="btn" id="qsDone" data-en="Done" data-th="เสร็จ">Done</button></div></div>
+  </section>
+
+  <!-- HISTORY -->
+  <section class="screen" id="s-hist" hidden>
+    <div class="top"><div><h1 data-en="History" data-th="ประวัติ">History</h1><div class="cycle" data-en="Tap an entry for its dates, edit or delete" data-th="แตะรายการเพื่อดูวันที่ แก้ไข หรือลบ">Tap an entry</div></div><button class="lang" id="histBack" hidden>Back</button></div>
+    <div class="tabs2 hs" style="grid-template-columns:repeat(3,1fr)"><button data-hs="hist" data-en="Entries" data-th="รายการ">Entries</button><button data-hs="sum:m" data-en="This cycle" data-th="สรุปรอบนี้">This cycle</button><button data-hs="sum:y" data-en="Whole year" data-th="สรุปทั้งปี">Whole year</button></div>
+    <input class="note" id="hq" type="search" data-ph-en="Search place, note, friend…" data-ph-th="ค้นหาร้าน โน้ต เพื่อน…" placeholder="Search" aria-label="Search">
+    <details class="more" id="hfBox"><summary><span data-en="Filter and view" data-th="ตัวกรองและการแสดงผล">Filter and view</span> <small id="hfNow"></small></summary>
+    <div class="seg seg3" id="hv" role="group" aria-label="View"></div>
+    <div class="chips" id="hf" style="margin-top:10px"></div></details>
+    <div class="mjump" id="mjump"></div>
+    <div id="hlist" style="display:flex;flex-direction:column;gap:14px"></div>
+  </section>
+
+  <!-- SUMMARY -->
+  <section class="screen" id="s-sum" hidden>
+    <div class="top"><div><h1 data-en="History" data-th="ประวัติ">History</h1><div class="cycle" id="sumSub"></div></div></div>
+    <div class="tabs2 hs" style="grid-template-columns:repeat(3,1fr)"><button data-hs="hist" data-en="Entries" data-th="รายการ">Entries</button><button data-hs="sum:m" data-en="This cycle" data-th="สรุปรอบนี้">This cycle</button><button data-hs="sum:y" data-en="Whole year" data-th="สรุปทั้งปี">Whole year</button></div>
+    <div class="tabs2" id="sumMode"></div>
+    <div class="ledger" style="padding:12px 14px"><div class="chart" id="chart"></div><p class="hint" id="budgetLine" style="font-size:13px;margin-top:6px"></p></div>
+    <div class="stat3" id="stats"></div>
+    <div class="sec"><h2><span class="h" data-en="By category" data-th="ตามหมวด">By category</span><span data-en="Spent / budget" data-th="ใช้ / งบ">Spent / budget</span></h2><div class="ledger" id="catList"></div></div>
+    <div class="sec"><h2><span class="h" data-en="By place" data-th="ตามร้าน">By place</span><span data-en="Spent · visits" data-th="ยอด · ครั้ง">Spent · visits</span></h2><div class="ledger" id="placeList2"></div></div>
+    <p class="hint" id="potSpend"></p>
+    <p class="hint" data-en="Only your own share counts. Money paid for friends and pocket spending are left out of the budget." data-th="นับเฉพาะส่วนของคุณ เงินที่ออกให้เพื่อนและรายจ่ายจากกองไม่นับในงบ">Only your own share counts.</p>
+  </section>
+
+  <!-- SPLIT -->
+  <section class="screen" id="s-plan" hidden>
+    <div class="top"><div><h1 data-en="Split salary" data-th="แบ่งเงินเดือน">Split salary</h1><div class="cycle" id="planSub"></div></div><button class="lang" data-back data-en="Back" data-th="กลับ">Back</button></div>
+    <div class="ledger" style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+      <div class="split" id="splitBar"></div>
+      <div class="legend"><span><span data-en="To MAKE" data-th="เข้า MAKE">To MAKE</span> <b class="num" id="toMake"></b></span><span><span id="toSpendLbl">For spending</span> <b class="num" id="toScb"></b></span></div>
+    </div>
+    <p class="hint" id="planHint"></p>
+    <div class="ledger" id="alloc"></div>
+    <div class="legend"><span data-en="Done" data-th="เสร็จแล้ว">Done</span><b class="num" id="doneCount"></b></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="screen" id="s-set" hidden>
+    <div class="top"><h1 id="setTitle" data-en="Settings" data-th="ตั้งค่า">Settings</h1><button class="lang" id="setBack" hidden data-en="‹ Back" data-th="‹ กลับ">‹ Back</button></div>
+    <p class="glbl" data-en="My money" data-th="เงินของฉัน">My money</p>
+    <div class="sec fold"><h2><span class="h" data-en="Accounts" data-th="บัญชี">Accounts</span></h2><div class="ledger" id="acctEd"></div>
+      <p class="hint" data-en="An account can be removed only when its balance is 0. History is kept." data-th="ลบบัญชีได้เมื่อยอดเป็นศูนย์ ประวัติยังอยู่">Remove only when empty.</p></div>
+    <div class="sec fold"><h2><span class="h" data-en="Credit cards" data-th="บัตรเครดิต">Credit cards</span></h2><div class="ledger" id="cardEd"></div>
+      <p class="hint" data-en="New statement days start after the statement that is open now closes, so past bills never move." data-th="วันสรุปยอดใหม่มีผลหลังรอบที่เปิดอยู่ตอนนี้ปิด บิลเก่าไม่ขยับ">New days start from the next statement.</p></div>
+    <div class="sec fold"><h2><span class="h" data-en="Monthly must-pay bills" data-th="รายจ่ายจำเป็นทุกเดือน">Monthly bills</span></h2><div class="ledger" id="billEd"></div>
+      <p class="hint" data-en="Set aside from Safe to spend each cycle until you record paying it (pick the bill when you add the expense)." data-th="กันไว้จาก 'ใช้ได้จริง' ทุกรอบ จนกว่าจะจดว่าจ่าย (ตอนจดให้เลือกรายการนี้)">Set aside until paid.</p></div>
+    <div class="sec fold"><h2><span class="h" data-en="Salary" data-th="เงินเดือน">Salary</span></h2>
+      <div class="ledger"><div class="ln"><span class="k" data-en="Monthly salary" data-th="เงินเดือน">Monthly salary</span><input class="field" id="salaryIn" type="number" inputmode="decimal" step="0.01" min="0"></div>
+        <div class="ln" style="flex-wrap:wrap"><span class="k" data-en="Payday (day of month)" data-th="เงินเดือนเข้าวันที่">Payday</span><input class="field mini" id="paydayIn" type="number" inputmode="numeric" min="1" max="31"><p class="hint" id="paydayNote" style="flex-basis:100%;font-size:13px"></p></div>
+        <div class="ln"><span class="k" data-en="Salary arrives in" data-th="เงินเดือนเข้าบัญชี">Salary arrives in</span><select class="sel" id="salaryTo"></select></div>
+        <div class="ln"><span class="k" data-en="Money for spending goes to" data-th="เงินที่เหลือไว้ใช้จ่ายโอนไป">Spending account</span><select class="sel" id="spendTo"></select></div></div></div>
+    <div class="sec fold"><h2><span class="h" data-en="Pockets" data-th="กอง">Pockets</span></h2>
+      <div class="ledger" id="potEd"></div>
+      <p class="hint" data-en="A pocket can be archived only when it is empty. Renaming here does not rename it in MAKE." data-th="เก็บกองได้เมื่อยอดเป็นศูนย์ · เปลี่ยนชื่อที่นี่ไม่ได้เปลี่ยนใน MAKE">A pocket can be archived only when empty.</p></div>
+    <div class="sec fold"><h2><span class="h" data-en="Categories" data-th="หมวด">Categories</span><span data-en="Budget / cycle" data-th="งบ / รอบ">Budget / cycle</span></h2>
+      <div class="ledger" id="catEd"></div>
+      <p class="hint" data-en="Rename anytime: past entries follow the new name. Archive hides a category from new entries but keeps its history." data-th="เปลี่ยนชื่อได้ตลอด รายการเก่าเปลี่ยนตาม · เก็บ = ซ่อนจากการจดใหม่ แต่ประวัติยังอยู่">Rename anytime.</p></div>
+    <div class="sec fold"><h2><span class="h" data-en="Starting balances" data-th="ยอดตอนเริ่มใช้">Starting balances</span></h2><div class="ledger" id="openEd"></div>
+      <p class="hint" data-en="What each one held before your first entry. Fix a typo here, or fill in an account or card you added later. Entries you recorded stay as they are." data-th="ยอดที่มีอยู่ก่อนเริ่มจด แก้เลขที่กรอกผิด หรือใส่ยอดของบัญชี/บัตรที่เพิ่มทีหลังได้ที่นี่ รายการที่จดไว้ไม่เปลี่ยน">Starting balances.</p></div>
+    <p class="glbl" data-en="Help" data-th="ช่วยเหลือ">Help</p>
+    <div class="sec fold"><h2><span class="h" data-en="How to use" data-th="วิธีใช้">How to use</span></h2>
+      <div id="helpList" class="helplist"></div>
+      <button class="btn ghost" id="tourAgain" data-en="Show the short tour again" data-th="ดูทัวร์สั้นอีกครั้ง">Show the short tour again</button></div>
+    <p class="glbl" data-en="App" data-th="แอป">App</p>
+    <div class="sec fold"><h2><span class="h" data-en="Appearance" data-th="หน้าตา">Appearance</span></h2>
+      <div class="ledger" style="padding:12px 16px;display:flex;flex-direction:column;gap:14px">
+        <div class="group"><span data-en="Accent colour" data-th="สีหลัก">Accent colour</span><div class="swatches" id="swatches"></div></div>
+        <div class="group"><span data-en="Theme" data-th="ธีม">Theme</span><div class="seg seg3" id="themeSeg"></div></div>
+        <div class="group"><span data-en="Language" data-th="ภาษา">Language</span><div class="tabs2" id="langSeg"></div></div>
+      </div></div>
+    <p class="glbl" data-en="Data" data-th="ข้อมูล">Data</p>
+    <div class="sec fold"><h2><span class="h" data-en="Backup" data-th="สำรอง / กู้คืน / ลบข้อมูล">Backup</span><span id="backupInfo" hidden></span></h2>
+      <div class="ledger" style="padding:12px 16px;display:flex;flex-direction:column;gap:10px">
+        <p class="hint" data-en="Everything is stored only on this phone. Export a backup file now and then, and keep it in Files or iCloud Drive." data-th="ข้อมูลทั้งหมดอยู่ในเครื่องนี้เท่านั้น ควรสำรองเป็นไฟล์เก็บไว้ใน Files หรือ iCloud Drive เป็นระยะ">Everything is stored only on this phone.</p>
+        <button class="btn" id="exportBtn" data-en="Export backup" data-th="สำรองข้อมูล">Export backup</button>
+        <label class="btn ghost" style="text-align:center;cursor:pointer"><span data-en="Restore from a backup file" data-th="กู้คืนจากไฟล์สำรอง">Restore</span><input type="file" id="importFile" accept="application/json,.json" hidden></label>
+        <p class="hint" id="importInfo"></p>
+        <button class="btn" id="importConfirm" hidden data-en="Replace my data with this backup" data-th="แทนที่ข้อมูลด้วยไฟล์นี้">Replace</button>
+        <hr style="border:0;border-top:1px solid var(--line);margin:8px 0">
+        <button class="btn ghost" id="eraseBtn" style="color:var(--debit)" data-en="Erase all data on this phone" data-th="ลบข้อมูลทั้งหมดในเครื่องนี้">Erase all data</button>
+      </div></div>
+    <p class="hint" style="text-align:center" id="verInfo" hidden>Payday Runway</p>
+  </section>
+</div>
+
+<div class="qsheet" id="helpSheet" hidden><div class="qsbox"><h3 id="hsT"></h3><div id="hsB" class="helpbody"></div><button type="button" class="btn ghost" id="hsMore" data-en="All topics" data-th="ดูทุกหัวข้อ">All topics</button><button type="button" class="btn" id="hsDone" data-en="Got it" data-th="เข้าใจแล้ว">Got it</button></div></div>
+<div class="tour" id="tour" hidden><div class="tourbox"><p class="tstep" id="tStep"></p><h3 id="tT"></h3><p id="tB"></p><div class="tdots" id="tDots"></div><div class="tbtns"><button type="button" class="btn ghost" id="tSkip" data-en="Skip" data-th="ข้าม">Skip</button><button type="button" class="btn" id="tNext"></button></div></div></div>
+<nav class="bar" aria-label="Main"><div class="in">
+  <button data-go="home" aria-current="page"><svg class="i"><use href="#i-home"/></svg><span data-en="Home" data-th="หน้าแรก">Home</span></button>
+  <button data-go="wallet"><svg class="i"><use href="#i-wallet"/></svg><span data-en="Wallet" data-th="กระเป๋า">Wallet</span></button>
+  <button data-go="add" aria-label="New entry"><span class="add"><svg class="i"><use href="#i-plus"/></svg></span></button>
+  <button data-go="hist"><svg class="i"><use href="#i-list"/></svg><span data-en="History" data-th="ประวัติ">History</span></button>
+  <button data-go="set"><svg class="i"><use href="#i-gear"/></svg><span data-en="Settings" data-th="ตั้งค่า">Settings</span></button>
+</div></nav>
+<div class="toast" id="toast" role="status" hidden></div>
+<div class="toast upd" id="updBar" hidden><span data-en="A new version is ready" data-th="มีเวอร์ชันใหม่">A new version is ready</span><button id="updBtn" data-en="Reload" data-th="รีโหลด">Reload</button></div>
+<script src="core.js"></script>
+<script src="store.js"></script>
+<script src="help.js"></script>
+<script>
+  // Load the saved ledger first, then start the app.
+  Store.load().then(st => { window.__initialState = st; const s = document.createElement('script'); s.src = 'app.js'; document.body.append(s); });
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      const show = w => { const bar = document.getElementById('updBar'); bar.hidden = false; document.getElementById('updBtn').onclick = () => w.postMessage('skip'); };
+      if (reg.waiting && navigator.serviceWorker.controller) show(reg.waiting);
+      reg.addEventListener('updatefound', () => { const w = reg.installing; w.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) show(w); }); });
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+    });
+    // Reload only when an update replaced a running version, not on the very first install.
+    const hadController = !!navigator.serviceWorker.controller; let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !reloaded) { reloaded = true; location.reload(); } });
+  }
+</script>
