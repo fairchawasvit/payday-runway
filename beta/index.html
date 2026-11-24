@@ -739,6 +739,7 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
   <!-- SETTINGS -->
   <section class="screen" id="s-set" hidden>
     <div class="top"><h1 id="setTitle" data-en="Settings" data-th="ตั้งค่า">Settings</h1><button class="lang" id="setBack" hidden data-en="‹ Back" data-th="‹ กลับ">‹ Back</button></div>
+    <div class="ledger" style="padding:12px 16px;margin-bottom:14px"><div class="group"><span data-en="Language" data-th="ภาษา">Language</span><div class="tabs2" id="langSeg"></div></div></div>
     <p class="glbl" data-en="My money" data-th="เงินของฉัน">My money</p>
     <div class="sec fold"><h2><span class="h" data-en="Accounts" data-th="บัญชี">Accounts</span></h2><div class="ledger" id="acctEd"></div>
       <p class="hint" data-en="An account can be removed only when its balance is 0. History is kept." data-th="ลบบัญชีได้เมื่อยอดเป็นศูนย์ ประวัติยังอยู่">Remove only when empty.</p></div>
@@ -768,7 +769,6 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
       <div class="ledger" style="padding:12px 16px;display:flex;flex-direction:column;gap:14px">
         <div class="group"><span data-en="Accent colour" data-th="สีหลัก">Accent colour</span><div class="swatches" id="swatches"></div></div>
         <div class="group"><span data-en="Theme" data-th="ธีม">Theme</span><div class="seg seg3" id="themeSeg"></div></div>
-        <div class="group"><span data-en="Language" data-th="ภาษา">Language</span><div class="tabs2" id="langSeg"></div></div>
       </div></div>
     <p class="glbl" data-en="Data" data-th="ข้อมูล">Data</p>
     <div class="sec fold"><h2><span class="h" data-en="Backup" data-th="สำรอง / กู้คืน / ลบข้อมูล">Backup</span><span id="backupInfo" hidden></span></h2>
