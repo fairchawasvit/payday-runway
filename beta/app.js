@@ -230,7 +230,7 @@ function home() {
   $('cycleLbl').textContent = `${tl('Cycle', 'รอบ')} ${dl(cyc.start)} – ${dly(cyc.end)}`;
   $('avail').textContent = fm(Math.abs(r.safe)); $('avail').previousElementSibling.textContent = r.safe < 0 ? '−฿' : '฿';
   $('avail').closest('.big').classList.toggle('neg', r.safe < 0);
-  $('perDayLbl').textContent = r.daysLeft ? tl(`${r.daysLeft} days to payday`, `อีก ${r.daysLeft} วันเงินเดือนเข้า`) : tl('Payday tomorrow', 'พรุ่งนี้เงินเดือนเข้า');
+  $('perDayLbl').textContent = r.daysLeft ? tl(`${r.daysLeft} days left in this cycle`, `อีก ${r.daysLeft} วันจบรอบ`) : tl('New cycle tomorrow', 'พรุ่งนี้เริ่มรอบใหม่');
   { const neg = liveAccts().filter(k => (r.balances[k] || 0) < 0);
     $('heroWhy').hidden = r.safe >= 0; $('why').hidden = r.safe < 0;
     if (r.safe < 0) {
@@ -283,7 +283,7 @@ function home() {
     fn: () => attempt(v > 0 ? { type: 'transfer', date: ST.today, amount: v, from: 'person:' + k, to: ST.spendTo } : { type: 'transfer', date: ST.today, amount: -v, from: ST.spendTo, to: 'person:' + k },
       { msg: v > 0 ? tl(`${person(k)} paid back ฿${fm(v)}`, `${person(k)} คืน ฿${fm(v)}`) : tl(`Paid ${person(k)} ฿${fm(-v)}`, `โอนให้${person(k)} ฿${fm(-v)}`) }) && home() }));
   { const pay = planPay(), salDone = salaryIn(pay);
-    if ((r.daysLeft <= 2 || pay <= ST.today) && !salDone) T.unshift({ id: 'plan', ico: 'i-split', t: pay <= ST.today ? tl(`Salary of ${dl(pay)} in yet? Split it when it is`, `เงินเดือนรอบ ${dl(pay)} เข้าหรือยัง? เข้าแล้วกดแบ่งเงิน`) : tl(`Payday ${dl(pay)}: split your salary`, `เงินเดือนเข้า ${dl(pay)} · แบ่งเงิน`),
+    if ((r.daysLeft <= 2 || pay <= ST.today) && !salDone) T.unshift({ id: 'plan', ico: 'i-split', t: pay <= ST.today ? tl(`Salary for the cycle from ${dl(pay)} in yet? Split it when it is`, `เงินเดือนรอบ ${dl(pay)} เข้าหรือยัง? เข้าแล้วกดแบ่งเงิน`) : tl(`New cycle ${dl(pay)}: split your salary when it arrives`, `รอบใหม่เริ่ม ${dl(pay)} · เงินเดือนเข้าแล้วกดแบ่งเงิน`),
       sub: tl(`฿${fm(ST.salary)} into ${acct(ST.salaryTo)}`, `฿${fm(ST.salary)} เข้า ${acct(ST.salaryTo)}`), btn: tl('Open', 'เปิด'), fn: () => go('plan') }); }
   if (r.daysLeft <= 3) {
     const amt = Math.abs(r.safe);
@@ -389,7 +389,7 @@ $('setBack').onclick = () => { closeSub(); scrollTo(0, 0); };
 function setSubs() {
   const n = (k, en, th) => tl(`${k} ${en}`, `${k} ${th}`);
   const sub = { Accounts: liveAccts().map(acct).join(' · '), 'Credit cards': liveCards().length ? liveCards().map(acct).join(' · ') : tl('None', 'ไม่มี'),
-    'Monthly must-pay bills': n((ST.bills || []).length, 'bills', 'รายการ'), Salary: tl(`Day ${payDay().day} · `, `วันที่ ${payDay().day} · `) + `${acct(ST.salaryTo)} → ${acct(ST.spendTo)}`,
+    'Monthly must-pay bills': n((ST.bills || []).length, 'bills', 'รายการ'), Salary: tl(`Cycle from day ${payDay().day} · `, `รอบเริ่มวันที่ ${payDay().day} · `) + `${acct(ST.salaryTo)} → ${acct(ST.spendTo)}`,
     Pockets: n(ST.pots.filter(p => !p.arch).length, 'pockets', 'กอง'), Categories: n(ST.cats.filter(c => !c.arch).length, 'categories', 'หมวด'),
     'Starting balances': tl('Fix a typo from day one', 'แก้เลขที่กรอกผิดตอนเริ่ม'), Appearance: { system: tl('Follows the phone', 'ตามเครื่อง'), light: tl('Light', 'สว่าง'), dark: tl('Dark', 'มืด') }[PREF.theme],
     'How to use': tl(`${window.HELP_ORDER.length} topics`, `${window.HELP_ORDER.length} หัวข้อ`),
@@ -851,7 +851,7 @@ function renderPlan() {
   const keep = IN === OUT ? 0 : (ST.bills || []).filter(b => b.from === IN).reduce((s, b) => s + b.amount, 0);
   const billsTotal = (ST.bills || []).filter(b => !C.isPot(b.from)).reduce((s, b) => s + b.amount, 0);
   const rest = SAL - toPots - keep;
-  $('planSub').textContent = tl(`Payday ${dly(pay)} · ฿${fm0(SAL)}`, `เงินเดือนเข้า ${dly(pay)} · ฿${fm0(SAL)}`);
+  $('planSub').textContent = tl(`Cycle from ${dly(pay)} · ฿${fm0(SAL)}`, `รอบเริ่ม ${dly(pay)} · ฿${fm0(SAL)}`);
   $('toMake').textContent = '฿' + fm0(toPots); $('toScb').textContent = '฿' + fm0(rest);
   $('toSpendLbl').textContent = IN === OUT ? tl(`Stays in ${outN}`, `อยู่ใน ${outN}`) : tl(`To ${outN}`, `ไป ${outN}`);
   $('planHint').textContent = tl(`Transfer in the ${inN} app, then tick each step here.`, `โอนในแอป ${inN} แล้วติ๊กทีละขั้นที่นี่`);
@@ -949,9 +949,9 @@ function renderSet() {
   const PD = ST.payday || [], pend = PD.find(x => x.since > ST.today);
   $('paydayIn').value = pend ? pend.day : payDay().day;
   $('paydayNote').textContent = pend ? (() => { const mid = cyc(C.addDays(cyc(ST.today).end, 1)); return tl(`Moves to day ${pend.day} from ${dly(pend.since)}. This cycle stays as it is; ${dl(mid.start)} – ${dl(mid.end)} is a one-off in-between cycle.`, `เปลี่ยนเป็นวันที่ ${pend.day} ตั้งแต่ ${dly(pend.since)} · รอบนี้ไม่เปลี่ยน · รอบ ${dl(mid.start)} – ${dl(mid.end)} เป็นรอบคั่นครั้งเดียว`); })()
-    : tl(`Each cycle runs from payday to the day before the next. In a short month, a late day becomes the month's last day.`, `รอบเดือนเริ่มวันเงินเดือนเข้า ถึงวันก่อนเงินเดือนครั้งถัดไป · เดือนที่ไม่มีวันนั้นจะใช้วันสุดท้ายของเดือน`);
+    : tl(`For example, 24 means each cycle runs from the 24th to the 23rd. Salary counts only once you record it arriving, so a late salary never shows as money you have. In a short month, a late day becomes the month's last day.`, `เช่น ตั้ง 24 = รอบงบ 24 ถึง 23 เดือนถัดไป · เงินเดือนนับเมื่อจดว่าเข้าแล้วเท่านั้น ถ้าเลทก็ไม่นับล่วงหน้า · เดือนที่ไม่มีวันนั้นจะใช้วันสุดท้ายของเดือน`);
   $('paydayIn').onchange = ev => { const v = +ev.target.value; if (!(Number.isInteger(v) && v >= 1 && v <= 31)) { toast(tl('Day must be 1 to 31', 'วันต้องอยู่ระหว่าง 1 ถึง 31')); return renderSet(); }
-    const since = C.changePayday(ST, ST.today, v); persist(); toast(since ? tl(`Payday moves to day ${v} from ${dly(since)}`, `เงินเดือนเข้าวันที่ ${v} ตั้งแต่ ${dly(since)}`) : tl('Payday unchanged', 'วันเงินเดือนเข้าเหมือนเดิม')); renderSet(); };
+    const since = C.changePayday(ST, ST.today, v); persist(); toast(since ? tl(`Cycle starts on day ${v} from ${dly(since)}`, `รอบเริ่มวันที่ ${v} ตั้งแต่ ${dly(since)}`) : tl('Cycle day unchanged', 'วันเริ่มรอบเหมือนเดิม')); renderSet(); };
   renderHelpList();
   setSubs();
   $('exportBtn').onclick = exportBackup;
@@ -1184,7 +1184,7 @@ $('startBtn') && ($('startBtn').onclick = () => {
   const cards = SU.cards.map(c => ({ ...c, n: c.n.trim(), close: +c.close, due: +c.due, billedS: sat(c.billed), unbilledS: sat(c.unbilled) }));
   const bills = SU.bills.map(b => ({ ...b, n: b.n.trim(), amountS: sat(b.amount) })).filter(b => b.amountS);
   const salary = sat(SU.salary), pday = +SU.payday;
-  if (!(Number.isInteger(pday) && pday >= 1 && pday <= 31)) return msg(tl('Payday must be a day from 1 to 31.', 'วันเงินเดือนเข้าต้องอยู่ระหว่าง 1 ถึง 31'));
+  if (!(Number.isInteger(pday) && pday >= 1 && pday <= 31)) return msg(tl('Cycle start must be a day from 1 to 31.', 'วันเริ่มรอบต้องอยู่ระหว่าง 1 ถึง 31'));
   const all = [salary, ...accts.map(a => a.balS), ...pots.flatMap(p => [p.balS, p.monS, p.goalS]), ...cards.flatMap(c => [c.billedS, c.unbilledS]), ...bills.map(b => b.amountS)];
   if (all.some(v => Number.isNaN(v) || v < 0)) return msg(tl('Amounts must be numbers of 0 or more.', 'ยอดต้องเป็นตัวเลข 0 ขึ้นไป'));
   if (!(salary > 0)) return msg(tl('Enter your monthly salary.', 'ใส่เงินเดือน'));

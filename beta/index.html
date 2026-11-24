@@ -579,13 +579,13 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
   <!-- HOME -->
   <section class="screen" id="s-home">
     <div class="top">
-      <div><h1 data-en="Payday runway" data-th="ระยะถึงเงินเดือน">Payday runway</h1><div class="cycle" id="cycleLbl"></div></div>
+      <div><h1 data-en="This cycle" data-th="รอบนี้">This cycle</h1><div class="cycle" id="cycleLbl"></div></div>
       <button class="lang" id="lang" aria-label="Switch language"><svg class="i" style="width:16px;height:16px"><use href="#i-globe"/></svg><span id="langLbl">ไทย</span></button>
     </div>
     <p class="sample" id="sampleNote" hidden data-en="You are looking at sample data. Erase it in Settings to start with your own." data-th="นี่คือข้อมูลตัวอย่าง ลบได้ในตั้งค่าเพื่อเริ่มใช้ของจริง">Sample data.</p>
 
     <div class="runway">
-      <div class="label" data-en="Safe to spend until payday" data-th="ใช้ได้จริงถึงเงินเดือน">Safe to spend until payday</div>
+      <div class="label" data-en="Safe to spend this cycle" data-th="ใช้ได้จริงถึงจบรอบ">Safe to spend this cycle</div>
       <div class="big num"><small>฿</small><span id="avail"></span></div>
       <div class="rrow"><span id="perDayLbl"></span><span id="perDay"></span></div>
       <p class="herowhy" id="heroWhy" hidden></p>
@@ -639,7 +639,7 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
       <button class="btn link" id="addSetupAcct" data-en="+ Add an account" data-th="+ เพิ่มบัญชี">Add an account</button>
       <div class="ledger" style="margin-top:10px">
       <div class="ln"><span class="k" data-en="Monthly salary" data-th="เงินเดือน">Monthly salary</span><input class="field" id="setupSalary" data-ph-en="Take-home pay" data-ph-th="ยอดที่ได้รับจริง" type="number" inputmode="decimal" step="0.01" min="0"></div>
-      <div class="ln"><span class="k" data-en="Payday (day of month)" data-th="เงินเดือนเข้าวันที่">Payday</span><input class="field mini" id="setupPayday" type="number" inputmode="numeric" min="1" max="31" value="28"></div>
+      <div class="ln"><span class="k" data-en="Cycle starts on day" data-th="รอบเริ่มวันที่">Cycle starts on day</span><input class="field mini" id="setupPayday" type="number" inputmode="numeric" min="1" max="31" value="28"></div>
       <div class="ln"><span class="k" data-en="Salary arrives in" data-th="เงินเดือนเข้าบัญชี">Salary arrives in</span><select class="sel" id="setupSalaryTo"></select></div>
       <div class="ln"><span class="k" data-en="Money for spending goes to" data-th="เงินที่เหลือไว้ใช้จ่ายโอนไป">Spending account</span><select class="sel" id="setupSpendTo"></select></div></div></div>
     <div class="sec"><h2><span class="h" data-en="MAKE pockets" data-th="กองใน MAKE">MAKE pockets</span></h2><div class="ledger" id="setupPots"></div>
@@ -755,7 +755,7 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
       <p class="hint" data-en="Set aside from Safe to spend each cycle until you record paying it (pick the bill when you add the expense)." data-th="กันไว้จาก 'ใช้ได้จริง' ทุกรอบ จนกว่าจะจดว่าจ่าย (ตอนจดให้เลือกรายการนี้)">Set aside until paid.</p></div>
     <div class="sec fold"><h2><span class="h" data-en="Salary" data-th="เงินเดือน">Salary</span></h2>
       <div class="ledger"><div class="ln"><span class="k" data-en="Monthly salary" data-th="เงินเดือน">Monthly salary</span><input class="field" id="salaryIn" type="number" inputmode="decimal" step="0.01" min="0"></div>
-        <div class="ln" style="flex-wrap:wrap"><span class="k" data-en="Payday (day of month)" data-th="เงินเดือนเข้าวันที่">Payday</span><input class="field mini" id="paydayIn" type="number" inputmode="numeric" min="1" max="31"><p class="hint" id="paydayNote" style="flex-basis:100%;font-size:13px"></p></div>
+        <div class="ln" style="flex-wrap:wrap"><span class="k" data-en="Cycle starts on day" data-th="รอบเริ่มวันที่">Cycle starts on day</span><input class="field mini" id="paydayIn" type="number" inputmode="numeric" min="1" max="31"><p class="hint" id="paydayNote" style="flex-basis:100%;font-size:13px"></p></div>
         <div class="ln"><span class="k" data-en="Salary arrives in" data-th="เงินเดือนเข้าบัญชี">Salary arrives in</span><select class="sel" id="salaryTo"></select></div>
         <div class="ln"><span class="k" data-en="Money for spending goes to" data-th="เงินที่เหลือไว้ใช้จ่ายโอนไป">Spending account</span><select class="sel" id="spendTo"></select></div></div></div>
     <div class="sec fold"><h2><span class="h" data-en="Pockets" data-th="กอง">Pockets</span></h2>
