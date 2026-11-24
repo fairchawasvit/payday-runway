@@ -667,7 +667,8 @@ $('qFrom').onclick = () => sheet(tl('Paid with', 'จ่ายด้วย'), AC
 $('qDate').onclick = () => {
   sheet(tl('Date', 'วันที่'), [[ST.today, tl('Today', 'วันนี้')], [C.addDays(ST.today, -1), tl('Yesterday', 'เมื่อวาน')], [C.addDays(ST.today, -2), tl('2 days ago', '2 วันก่อน')]], F.date, k => { F.date = k; closeSheet(); },
     `<label class="switch"><span>${tl('Other date', 'วันอื่น')}</span><input type="date" id="qsDate" value="${esc(F.date)}"></label>`);
-  $('qsDate').onchange = () => { const d = $('qsDate').value; if (C.isDate(d)) { F.date = d; closeSheet(); } };
+  $('qsDate').onchange = () => { const d = $('qsDate').value; if (C.isDate(d)) F.date = d; };
+  $('qsDate').onblur = () => { if (C.isDate($('qsDate').value)) closeSheet(); };
 };
 $('qMore').onclick = () => { F.full = true; F.more = true; renderAdd(); };
 $('toQuick').onclick = () => { F.full = false; renderAdd(); scrollTo(0, 0); };
@@ -922,7 +923,8 @@ function renderSet() {
       if (v !== null && !(v >= 0)) { toast(tl('Amounts must be 0 or more', 'ยอดต้องเป็น 0 ขึ้นไป')); return renderSet(); }
       if (v === null || v === 0) delete p[key]; else p[key] = v; if (key === 'monthly') delete p.fixed; delete p.once; persist(); renderSet(); };
     money('pg', 'goal'); money('pm', 'monthly');
-    $('pb' + i).onchange = ev => { const v = ev.target.value; if (v) p.by = v; else delete p.by; persist(); renderSet(); };
+    $('pb' + i).onchange = ev => { const v = ev.target.value; if (v) p.by = v; else delete p.by; persist(); }; // no redraw while the iOS wheel is open
+    $('pb' + i).onblur = () => renderSet();
     $('pr' + i).onchange = ev => { if (ev.target.checked) p.repeat = true; else delete p.repeat; persist(); renderSet(); };
   });
   $('addPot').onclick = () => { const v = $('newPot').value.trim(); if (!v) { $('newPot').focus(); return; }
@@ -1142,7 +1144,11 @@ function renderSetup() {
     <span class="bfrom">${tl('from', 'จ่ายจาก')} ${sel('bills', i, 'from', billFrom, b.from, bfName)}</span></div>`).join('');
   document.querySelectorAll('#s-setup [data-open]').forEach(b => b.onclick = () => { readSetup(); SU.pots[+b.dataset.open].open = true; renderSetup(); });
   // wiring: any edit is read back into SU; a few need a redraw (names feed the dropdowns, days feed the card labels)
-  document.querySelectorAll('#s-setup [data-su]').forEach(i => i.onchange = () => { readSetup(); if (i.dataset.redraw || i.dataset.su.endsWith('.n') || i.dataset.su.endsWith('.name')) renderSetup(); });
+  const isPicker = i => i.type === 'month' || i.type === 'date';
+  document.querySelectorAll('#s-setup [data-su]').forEach(i => {
+    i.onchange = () => { readSetup(); if (isPicker(i)) return; if (i.dataset.redraw || i.dataset.su.endsWith('.n') || i.dataset.su.endsWith('.name')) renderSetup(); };
+    if (isPicker(i)) i.onblur = () => { readSetup(); renderSetup(); };
+  });
   document.querySelectorAll('#s-setup [data-del]').forEach(b => b.onclick = () => { readSetup(); const [list, i] = b.dataset.del.split('.');
     if (list === 'accts' && SU.accts.length <= 1) { toast(tl('Keep at least one account', 'ต้องมีอย่างน้อยหนึ่งบัญชี')); return; }
     const gone = SU[list].splice(+i, 1)[0];
