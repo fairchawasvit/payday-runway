@@ -404,7 +404,7 @@ function rowHTML(e) {
   const st = e.type === 'expense' && e.shares ? C.shareStatus(ST, e.id) : [], wait = st.some(s => s.left > 0);
   const tags = [e.type === 'expense' ? acct(e.from) : e.type === 'income' ? acct(e.to) : '', st.length ? st.map(s => s.p).join(', ') : ''].filter(Boolean);
   return `<div class="hwrap"><button class="crow" data-id="${e.id}" aria-expanded="${openId === e.id}"><span class="dt">${String(+e.date.slice(8)).padStart(2, '0')} ${MN()[+e.date.slice(5, 7) - 1]}</span>
-    <span class="nm">${esc(label(e))} <em>${e.type === 'expense' ? '· ' + esc(cn(e.cat)) + ' ' : ''}${tags.length ? '· ' + esc(tags.join(' · ')) : ''}</em>${wait ? '<span class="dotw" title="waiting refund"></span>' : ''}${e.pre ? `<span class="pill">${tl('back-dated', 'ย้อนหลัง')}</span>` : ''}</span>${money(e)}</button>
+    <span class="nm">${esc(label(e))} <em>${e.type === 'expense' ? '· ' + esc(cn(e.cat)) + ' ' : ''}${tags.length ? '· ' + esc(tags.join(' · ')) : ''}</em>${wait ? '<span class="dotw" title="waiting refund"></span>' : ''}${e.pre ? `<span class="pill">${tl('not deducted', 'ไม่หักยอด')}</span>` : ''}</span>${e.pre ? money(e).replace('class="num ', 'class="num prev ') : money(e)}</button>
     ${openId === e.id ? detailHTML(e) : ''}</div>`;
 }
 // the payment that finished paying this statement (payments settle the oldest statement first)
@@ -504,13 +504,13 @@ function renderAdd() {
   const quick = F.type === 'expense' && !F.editingId && !F.full;
   $('quick').hidden = !quick; $('full').hidden = quick;
   $('toQuick').hidden = !(F.full && F.type === 'expense' && !F.editingId);
-  if (quick) return renderQuick();
+  if (quick) { renderQuick(); if (!F.dOpen) return; }
   $('amt').value = F.amount; $('date').value = F.date; $('note').value = F.note;
   const onStart = ST.startDate && F.date === ST.startDate, before = ST.startDate && C.isDate(F.date) && F.date < ST.startDate;
   $('preRow').hidden = !onStart; $('pre').checked = !!F.pre;
   $('preNote').hidden = !isPre();
-  if (isPre()) $('preNote').textContent = tl(`Back-dated: before you started on ${dl(ST.startDate)}, so your starting balances already include it. It counts in this month's spending, bills paid and friends' debts, but no account or card balance changes.`,
-    `ย้อนหลัง · ก่อนเริ่มใช้แอป (${dl(ST.startDate)}) ยอดในบัญชีที่กรอกตอนเริ่มหักไปแล้ว รายการนี้นับในสรุปรายจ่าย บิลที่จ่าย และเงินที่เพื่อนค้าง แต่ไม่หักเงินในบัญชีหรือบัตรซ้ำ`);
+  if (isPre()) $('preNote').textContent = tl(`Not deducted: before you started on ${dl(ST.startDate)}, so your starting balances already include it. It counts in this month's spending, bills paid and friends' debts, but no account or card balance changes.`,
+    `ไม่หักยอด · ก่อนเริ่มใช้แอป (${dl(ST.startDate)}) ยอดในบัญชีที่กรอกตอนเริ่มหักไปแล้ว รายการนี้นับในสรุปรายจ่าย บิลที่จ่าย และเงินที่เพื่อนค้าง แต่ไม่หักเงินในบัญชีหรือบัตรซ้ำ`);
   const isX = F.type === 'expense', isI = F.type === 'income', isT = F.type === 'transfer';
   $('gFrom').hidden = !isX; $('gCat').hidden = !isX; $('gPlace').hidden = !isX; $('gSplit').hidden = !isX; $('gPot').hidden = !(isX && F.from === 'POT');
   $('gTo').hidden = !isI; $('gInc').hidden = !isI; $('gMove').hidden = !isT;
@@ -571,7 +571,7 @@ function renderAdd() {
     if (e.bill) { const x = bills.find(y => y.id === e.bill); if (x) r(tl('Monthly bill', 'รายจ่ายประจำ'), tl(`${esc(billName(x))} · no longer set aside`, `${esc(billName(x))} · เลิกกันเงินส่วนนี้`)); }
     if (e.shares) r(tl('Friends owe you', 'เพื่อนต้องคืน'), '฿' + fm(C.sharesTotal(e)));
   }
-  if (e.pre && e.amount > 0) r(tl('Balances', 'ยอดในบัญชี/บัตร'), tl('unchanged (back-dated)', 'ไม่เปลี่ยน (ย้อนหลัง)'));
+  if (e.pre && e.amount > 0) r(tl('Balances', 'ยอดในบัญชี/บัตร'), tl('unchanged (not deducted)', 'ไม่เปลี่ยน (ไม่หักยอด)'));
   if (isT && e.amount > 0) r(tl('Moves', 'โอน'), `${esc(acct(e.from))} → ${esc(acct(e.to))}`);
   if (isI && e.amount > 0) r(tl('Goes to', 'เข้า'), esc(acct(e.to)));
   $('where').innerHTML = rows.length ? `<h3><svg class="i" style="width:16px;height:16px"><use href="#i-route"/></svg>${tl('Where this goes', 'รายการนี้ไปที่ไหน')}</h3>${rows.join('')}` : '';
@@ -628,8 +628,9 @@ function renderQuick() {
   const fromName = F.from === 'POT' ? (F.pot && potOf(F.pot) ? pn(potOf(F.pot)) : tl('Pocket', 'กอง')) : acct(F.from);
   $('qFrom').innerHTML = `${tl('Paid with', 'จ่ายด้วย')} <b>${esc(fromName)}</b>`;
   const dLbl = F.date === ST.today ? tl('Today', 'วันนี้') : F.date === C.addDays(ST.today, -1) ? tl('Yesterday', 'เมื่อวาน') : dl(F.date);
-  $('qDate').innerHTML = `${tl('Date', 'วันที่')} <b>${esc(dLbl)}</b>${isPre() ? ' · ' + tl('back-dated', 'ย้อนหลัง') : ''}`;
-  $('qMore').textContent = tl('+ Shop / friends / note / bill', '+ ร้าน / เพื่อน / โน้ต / บิล');
+  $('qDate').innerHTML = `${tl('Date', 'วันที่')} <b>${esc(dLbl)}</b>${isPre() ? ' · ' + tl('not deducted', 'ไม่หักยอด') : ''}`;
+  { const bl = F.bill && C.billStatus(ST, ST.today).find(x => x.id === F.bill), got = [bl ? billName(bl) : '', F.place.trim(), F.split.length ? tl('split with ', 'หารกับ ') + F.split.join(', ') : '', F.note.trim() ? tl('note', 'โน้ต') : ''].filter(Boolean);
+    $('qMore').innerHTML = got.length ? `<b>${esc(got.join(' · '))}</b>` : tl('+ Details: bill, shop, friends, note', '+ รายละเอียด: บิล ร้าน เพื่อน โน้ต'); }
   const picked = F.qcat && live.some(c => c.id === F.qcat) ? F.qcat : '';
   $('qHint').textContent = !amt ? tl('Type the amount, then pick a category', 'พิมพ์ยอด แล้วเลือกหมวด') : !picked ? tl('Pick a category', 'เลือกหมวด') : tl('Check, then tap Save', 'ตรวจแล้วกดบันทึก');
   $('qCats').classList.toggle('ready', amt > 0 && !picked);
@@ -666,11 +667,23 @@ $('qFrom').onclick = () => sheet(tl('Paid with', 'จ่ายด้วย'), AC
 });
 $('qDate').onclick = () => {
   sheet(tl('Date', 'วันที่'), [[ST.today, tl('Today', 'วันนี้')], [C.addDays(ST.today, -1), tl('Yesterday', 'เมื่อวาน')], [C.addDays(ST.today, -2), tl('2 days ago', '2 วันก่อน')]], F.date, k => { F.date = k; closeSheet(); },
-    `<label class="switch"><span>${tl('Other date', 'วันอื่น')}</span><input type="date" id="qsDate" value="${esc(F.date)}"></label>`);
+    `<label class="switch"><span>${tl('Other date', 'วันอื่น')}</span><input type="date" id="qsDate" value="${esc(F.date)}"></label>` +
+    (ST.startDate ? `<label class="switch"><span>${tl('Paid before I started the app', 'จ่ายไปก่อนเริ่มใช้แอป')}<br><small style="color:var(--ink-3);font-size:13px">${tl(`Dated ${dl(ST.startDate)} or earlier: balances are not deducted again`, `วันที่ ${dl(ST.startDate)} หรือก่อนนั้น · ไม่หักเงินในบัญชีซ้ำ`)}</small></span><input type="checkbox" id="qsPre" ${isPre() ? 'checked' : ''}></label>` : ''));
+  if ($('qsPre')) $('qsPre').onchange = ev => { if (ev.target.checked) { if (!(F.date <= ST.startDate)) F.date = ST.startDate; F.pre = true; } else { F.pre = false; if (F.date < ST.startDate) F.date = ST.today; } $('qsDate').value = F.date; renderQuick(); };
   $('qsDate').onchange = () => { const d = $('qsDate').value; if (C.isDate(d)) F.date = d; };
   $('qsDate').onblur = () => { if (C.isDate($('qsDate').value)) closeSheet(); };
 };
-$('qMore').onclick = () => { F.full = true; F.more = true; renderAdd(); };
+// "Details" opens over the keypad; the real form parts move into the sheet and back, so nothing is lost
+const D_PARTS = ['gBill', 'gPlace', 'gSplit', 'gNote'].map(id => { const n = $(id); return { n, parent: n.parentNode, next: n.nextSibling }; });
+$('qMore').onclick = () => { F.dOpen = true; D_PARTS.forEach(x => $('dSlot').appendChild(x.n)); $('dSheet').hidden = false; renderAdd(); };
+function closeDetails() {
+  if (!F.dOpen) return; F.dOpen = false; $('dSheet').hidden = true;
+  [...D_PARTS].reverse().forEach(x => x.parent.insertBefore(x.n, x.next));
+  if (F.cat && ST.cats.some(c => c.id === F.cat && !c.arch)) F.qcat = F.cat; // a bill or a known shop picks the category
+  renderAdd();
+}
+$('dDone').onclick = closeDetails;
+$('dSheet').onclick = ev => { if (ev.target === $('dSheet')) closeDetails(); };
 $('toQuick').onclick = () => { F.full = false; renderAdd(); scrollTo(0, 0); };
 
 // ---------- guide: How-to page, "?" buttons, first-run tour ----------
@@ -1224,7 +1237,7 @@ function go(s) {
   document.querySelector('nav.bar').hidden = s === 'setup';
   document.querySelectorAll('nav.bar button').forEach(b => b.dataset.go === (s === 'sum' ? 'hist' : s === 'plan' ? 'wallet' : s) ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
   if (s !== 'add' && F.editingId) F = blankForm();
-  if (s !== 'add') { F.full = false; F.qcat = ''; if (!F.editingId) F.amount = ''; $('qSheet').hidden = true; }
+  if (s !== 'add') { F.full = false; F.qcat = ''; if (!F.editingId) F.amount = ''; $('qSheet').hidden = true; closeDetails(); }
   $('helpSheet').hidden = true;
   if (s === 'set') closeSub();
   markHs(s);

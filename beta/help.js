@@ -91,11 +91,11 @@ window.HELP = {
   },
   backdated: {
     th: ['จดย้อนหลัง', [
-      'รายการที่ลงวันที่ก่อนวันเริ่มใช้แอป ติดป้าย "ย้อนหลัง" ให้เอง ยอดในบัญชีและบัตรไม่ถูกหักซ้ำ เพราะยอดที่กรอกตอนเริ่มรวมไว้แล้ว',
+      'รายการที่ลงวันที่ก่อนวันเริ่มใช้แอป ติดป้าย "ไม่หักยอด" ให้เอง ยอดในบัญชีและบัตรไม่ถูกหักซ้ำ เพราะยอดที่กรอกตอนเริ่มรวมไว้แล้ว',
       'แต่ยังนับในสรุปรายจ่าย นับว่าบิลจ่ายแล้ว และนับเงินที่เพื่อนค้าง',
       'วันที่เริ่มใช้แอป มีสวิตช์ "จ่ายไปก่อนเริ่มใช้แอปวันนี้" ให้เลือกเอง']],
     en: ['Back-dated entries', [
-      'Entries dated before you started are marked "back-dated". Balances are not reduced again; the starting balances already include them.',
+      'Entries dated before you started are marked "not deducted". Balances are not reduced again; the starting balances already include them.',
       'They still count in the summary, for bills paid, and for friends\' debts.',
       'On your start day, a switch asks if it was paid before you started.']],
   },

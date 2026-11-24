@@ -492,6 +492,8 @@ summary{min-height:44px;display:flex;align-items:center}
 .qsheet[hidden]{display:none!important}
 .qsbox{width:100%;max-width:440px;margin:0 auto;background:var(--surface);border-radius:20px 20px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;max-height:80vh;overflow:auto}
 .qsbox h3{margin:0;font-size:15px}
+.dslot{display:flex;flex-direction:column;gap:14px}.dslot .group{background:none;padding:0}.dslot .note,.dslot .addrow input{background:var(--raise)}
+.num.prev{color:var(--ink-3)}
 .qsrow{display:flex;flex-wrap:wrap;gap:8px}
 #s-add:has(#quick:not([hidden])){min-height:calc(100dvh - 130px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}
 #quick{flex:1}.qpad{margin-top:auto}
@@ -688,7 +690,7 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
       <label class="switch"><span data-en="From" data-th="จาก">From</span><select id="tFrom" class="sel"></select></label>
       <label class="switch"><span data-en="To" data-th="ไป">To</span><select id="tTo" class="sel"></select></label>
     </div>
-    <div class="group"><span data-en="Note" data-th="โน้ต">Note</span><input class="note" id="note" autocomplete="off" data-ph-en="Optional" data-ph-th="ไม่บังคับ" placeholder="Optional"></div>
+    <div class="group" id="gNote"><span data-en="Note" data-th="โน้ต">Note</span><input class="note" id="note" autocomplete="off" data-ph-en="Optional" data-ph-th="ไม่บังคับ" placeholder="Optional"></div>
     </details>
 
     <div class="routes" id="where" hidden></div>
@@ -696,6 +698,7 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
     <button class="btn" id="save">Save entry</button>
     <button type="button" class="btn link" id="toQuick" hidden data-en="‹ Back to the keypad" data-th="‹ กลับไปแบบแป้นตัวเลข">‹ Back to the keypad</button>
     </div>
+    <div class="qsheet" id="dSheet" hidden><div class="qsbox"><h3 data-en="Details (all optional)" data-th="รายละเอียด (ไม่ใส่ก็ได้)">Details</h3><div id="dSlot" class="dslot"></div><button type="button" class="btn" id="dDone" data-en="Done" data-th="เสร็จ">Done</button></div></div>
     <div class="qsheet" id="qSheet" hidden><div class="qsbox"><h3 id="qsT"></h3><div class="qsrow" id="qsRow"></div><div id="qsExtra"></div><button type="button" class="btn" id="qsDone" data-en="Done" data-th="เสร็จ">Done</button></div></div>
   </section>
 
