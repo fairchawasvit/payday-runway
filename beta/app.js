@@ -976,8 +976,8 @@ function renderMoneySettings(bal) {
     const cur = c.sched.filter(x => x.since <= today).at(-1) || c.sched[0], next = c.sched.find(x => x.since > today), owe = bal[c.k] || 0;
     return `<div class="ed ${c.arch ? 'arch' : ''}" style="flex-wrap:wrap;row-gap:6px"><input class="name" id="kn${i}" value="${esc(acct(c.k))}" ${c.arch ? 'disabled' : ''} aria-label="${tl('Card name', 'ชื่อบัตร')}">
       <span class="num" style="font-size:13px;color:var(--ink-2)">${owe ? '−' + fm(owe) : ''}</span><button class="act" id="ka${i}">${c.arch ? tl('Restore', 'คืน') : tl('Remove', 'ลบ')}</button>
-      ${c.arch ? '' : `<span class="lnsub" style="flex-basis:100%">${tl('Closes day', 'สรุปยอดวันที่')} <input class="field mini" id="kc${i}" type="number" min="1" max="28" value="${(next || cur).close}"> ${tl('due day', 'ครบกำหนดวันที่')} <input class="field mini" id="kd${i}" type="number" min="1" max="28" value="${(next || cur).due}">
-        ${tl('paid from', 'จ่ายจาก')} <select class="sel" id="kf${i}">${opts(withCur(liveAccts(), c.from), c.from)}</select></span>
+      ${c.arch ? '' : `<div class="daygrid" style="flex-basis:100%"><label>${tl('Closes day', 'สรุปยอดวันที่')}<input class="field" id="kc${i}" type="number" inputmode="numeric" min="1" max="28" value="${(next || cur).close}"></label><label>${tl('Due day', 'ครบกำหนดวันที่')}<input class="field" id="kd${i}" type="number" inputmode="numeric" min="1" max="28" value="${(next || cur).due}"></label>
+        <label style="grid-column:1/-1">${tl('Paid from', 'จ่ายจาก')}<select class="sel" id="kf${i}">${opts(withCur(liveAccts(), c.from), c.from)}</select></label></div>
         ${next ? `<span class="hint" style="flex-basis:100%;font-size:13px">${tl(`New days start ${dly(next.since)} (now day ${cur.close}, due ${cur.due})`, `วันใหม่เริ่ม ${dly(next.since)} (ตอนนี้วันที่ ${cur.close} ครบกำหนด ${cur.due})`)}</span>` : ''}`}
       <span class="warn" id="kw${i}" hidden></span></div>`; }).join('') +
     `<div class="addrow"><input id="newCard" placeholder="${tl('New card', 'บัตรใหม่')}" aria-label="${tl('New card', 'บัตรใหม่')}"><button id="addCard">${tl('Add', 'เพิ่ม')}</button></div>`;
@@ -1119,20 +1119,20 @@ function renderSetup() {
     const ok = [plan.goal, plan.monthly || 0, sat0(p.bal)].every(v => v >= 0);
     return `<div class="ln" style="flex-wrap:wrap;gap:6px"><input class="note" style="flex:1;min-width:0;padding:7px 10px" data-su="pots.${i}.name" value="${esc(p.name)}" placeholder="${tl('Pocket name', 'ชื่อกอง')}" aria-label="${tl('Pocket name', 'ชื่อกอง')}" ${cf ? 'readonly' : ''}>${cf ? '' : del('pots', i)}
     <div class="pgoal" style="padding-left:0">
-      <label>${tl('Balance now ฿', 'ยอดตอนนี้ ฿')}<input class="field" type="number" inputmode="decimal" step="0.01" min="0" data-su="pots.${i}.bal" data-redraw="1" value="${esc(p.bal)}" placeholder="0"></label>
+      <label>${tl('Balance ฿', 'ยอดตอนนี้ ฿')}<input class="field" type="number" inputmode="decimal" step="0.01" min="0" data-su="pots.${i}.bal" data-redraw="1" value="${esc(p.bal)}" placeholder="0"></label>
       ${cf ? `<span class="pline" style="grid-column:2/-1;align-self:end">${tl('Holds what is left (or covers what is short) at the end of each cycle. The app uses it, so it has no goal and cannot be renamed.', 'กองพักเงินเหลือ/ขาดตอนจบแต่ละรอบ แอปใช้เอง จึงไม่มีเป้าและเปลี่ยนชื่อไม่ได้')}</span>` : !(p.open || String(p.goal || '').trim() || p.by || String(p.monthly || '').trim()) ? `<button type="button" class="btn link" style="grid-column:2/-1;align-self:end;padding:6px 0" data-open="${i}">${tl('+ Goal or monthly amount', '+ ตั้งเป้า / ยอดต่อเดือน')}</button>` : `
       <label>${tl('Goal ฿', 'เป้า ฿')}<input class="field" type="number" inputmode="decimal" step="0.01" min="0" data-su="pots.${i}.goal" data-redraw="1" value="${esc(p.goal)}" placeholder="${tl('none', 'ไม่มี')}"></label>
       <label>${tl('Reach by', 'ครบภายใน')}<input class="field" type="month" data-su="pots.${i}.by" data-redraw="1" value="${esc(p.by)}"></label>
       <label>${tl('Per month ฿', 'โอน/เดือน ฿')}<input class="field" type="number" inputmode="decimal" step="0.01" min="0" data-su="pots.${i}.monthly" data-redraw="1" value="${esc(p.monthly)}" placeholder="${tl('auto', 'ให้แอปคิด')}"></label>
-      <label class="rep" style="grid-column:2/-1;align-self:end"><input type="checkbox" data-su="pots.${i}.repeat" data-redraw="1" ${p.repeat ? 'checked' : ''}> ${tl('Same goal every year', 'เป้าวนทุกปี')}</label>
+      <label class="rep"><input type="checkbox" data-su="pots.${i}.repeat" data-redraw="1" ${p.repeat ? 'checked' : ''}> ${tl('Same goal every year', 'เป้าวนทุกปี')}</label>
       ${ok && (plan.goal || plan.monthly) ? `<span class="pline">${esc(potLine(plan, sat0(p.bal) || 0, nextPay()))}</span>` : ''}`}
     </div></div>`; }).join('');
   $('setupCards').innerHTML = SU.cards.map((c, i) => { const st = setupStatements(c);
     return `<div class="ledger">
     <div class="ln" style="gap:6px">${txt('cards', i, 'n', c.n, tl('Card name, e.g. SCB card', 'ชื่อบัตร เช่น บัตร SCB'))}${del('cards', i)}</div>
-    <div class="ln"><span class="lnsub">${tl('Closes day', 'สรุปยอดวันที่')} <input class="field mini" type="number" min="1" max="28" data-su="cards.${i}.close" data-redraw="1" value="${esc(c.close)}">
-      ${tl('due day', 'ครบกำหนดวันที่')} <input class="field mini" type="number" min="1" max="28" data-su="cards.${i}.due" data-redraw="1" value="${esc(c.due)}">
-      ${tl('paid from', 'จ่ายจาก')} ${sel('cards', i, 'from', acctKeys, c.from, aName)}</span></div>
+    <div class="ln"><div class="daygrid"><label>${tl('Closes day', 'สรุปยอดวันที่')}<input class="field" type="number" inputmode="numeric" min="1" max="28" data-su="cards.${i}.close" data-redraw="1" value="${esc(c.close)}"></label>
+      <label>${tl('Due day', 'ครบกำหนดวันที่')}<input class="field" type="number" inputmode="numeric" min="1" max="28" data-su="cards.${i}.due" data-redraw="1" value="${esc(c.due)}"></label></div></div>
+    <div class="ln"><span class="k">${tl('Paid from', 'จ่ายจาก')}</span>${sel('cards', i, 'from', acctKeys, c.from, aName)}</div>
     ${st ? `<div class="ln"><span class="k">${tl('Billed, not paid yet', 'บิลที่สรุปแล้ว ยังไม่จ่าย')}<small>${tl(`closed ${dl(st.last)} · due ${dl(st.lastDue)}`, `สรุป ${dl(st.last)} · ครบกำหนด ${dl(st.lastDue)}`)}${st.lastDue < ST.today ? tl(' · already due: put 0 if you paid it', ' · เลยกำหนดแล้ว ถ้าจ่ายแล้วใส่ 0') : ''}</small></span>${num('cards', i, 'billed', c.billed)}</div>
     <div class="ln"><span class="k">${tl('Spent, not billed yet', 'ยอดรูดที่ยังไม่ออกบิล')}<small>${st.open === ST.today ? tl(`today is closing day: count today's new bill here, it becomes a bill tomorrow`, `วันนี้เป็นวันสรุปยอด: บิลที่เพิ่งออกวันนี้ใส่ช่องนี้ พรุ่งนี้แอปย้ายเป็นบิลให้เอง`) : tl(`will close ${dl(st.open)} · due ${dl(st.openDue)}`, `จะสรุป ${dl(st.open)} · ครบกำหนด ${dl(st.openDue)}`)}</small></span>${num('cards', i, 'unbilled', c.unbilled)}</div>`
       : `<div class="ln"><span class="k" style="color:var(--debit)">${tl('Days must be 1 to 28', 'วันต้องอยู่ระหว่าง 1 ถึง 28')}</span></div>`}</div>`; }).join('');

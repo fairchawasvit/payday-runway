@@ -528,6 +528,19 @@ body.on-add nav.bar [data-go="add"]{visibility:hidden}
 .herowhy{display:block}
 .qpad button{min-height:clamp(48px,5.6dvh,58px)}.qcat{min-height:clamp(54px,6.2dvh,66px)}
 @media (max-height:720px){.qpad button{min-height:44px}.qcat{min-height:50px}}
+/* v3.8 real-iPhone fixes */
+.pgoal{grid-template-columns:repeat(2,minmax(0,1fr))!important;align-items:end}
+.pgoal label{min-width:0}
+.pgoal label,.daygrid label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pgoal .field,.pgoal input,.daygrid .field,.daygrid .sel{width:100%;min-width:0;max-width:100%;text-align:left}
+input[type=month],input[type=date]{-webkit-appearance:none;appearance:none;min-width:0;max-width:100%;box-sizing:border-box;text-align:left}
+.daygrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
+.daygrid label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink-3)}
+/* iPhone: a solid strip behind the status bar / Dynamic Island so content doesn't scroll under the clock */
+body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-inset-top,0px);background:var(--ground);z-index:60;pointer-events:none}
+.pgoal .rep{grid-column:1/-1;flex-direction:row!important;justify-content:flex-start;align-items:center;gap:10px;min-height:44px}
+.pgoal input[type=checkbox]{width:22px!important;height:22px;flex:none;margin:0}
+.pgoal .pline{grid-column:1/-1}
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
