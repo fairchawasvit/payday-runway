@@ -1150,7 +1150,7 @@ function renderSet() {
   $('importFile').onchange = importBackup;
   $('eraseBtn').onclick = ev => { const b = ev.currentTarget;
     if (b.dataset.armed !== '2') { b.dataset.armed = String((+b.dataset.armed || 0) + 1); b.textContent = b.dataset.armed === '1' ? tl('This deletes every entry on this phone. Tap again', 'จะลบทุกรายการในเครื่องนี้ แตะอีกครั้ง') : tl('Last chance: tap to erase', 'แตะครั้งสุดท้ายเพื่อลบ'); return; }
-    window.Store.erase().then(() => { SU = null; ST = emptyState(); ST.today = localToday(); F = blankForm(); go('setup'); }); };
+    window.Store.erase().then(() => { SU = null; dropDraft(); ST = emptyState(); ST.today = localToday(); F = blankForm(); go('setup'); }); };
 }
 
 // first date with day-of-month `day` (clamped to month length) strictly after `d`, then the ones after it
@@ -1335,6 +1335,11 @@ function importBackup(ev) {
 // ---------- first-run setup ----------
 const prevMonth = d => { const [y, m, dd] = d.split('-').map(Number); return new Date(Date.UTC(y, m - 2, dd)).toISOString().slice(0, 10); };
 let SU = null; // the setup form while it is being filled in
+// keep the half-filled setup across a reload (an app update reloads the page); per path, so beta and real stay apart
+const DRAFT = 'setupDraft:' + location.pathname;
+const saveDraft = () => { try { if (SU) localStorage.setItem(DRAFT, JSON.stringify(SU)); } catch (e) {} };
+const loadDraft = () => { try { const d = JSON.parse(localStorage.getItem(DRAFT) || 'null'); return d && Array.isArray(d.accts) ? d : null; } catch (e) { return null; } };
+const dropDraft = () => { try { localStorage.removeItem(DRAFT); } catch (e) {} };
 function freshSetup() {
   return {
     step: 1,
@@ -1350,6 +1355,7 @@ function freshSetup() {
 function readSetup() {
   document.querySelectorAll('[data-su]').forEach(i => { const [list, idx, f] = i.dataset.su.split('.'); SU[list][+idx][f] = i.type === 'checkbox' ? i.checked : i.value; });
   SU.salaryTo = $('setupSalaryTo').value || SU.salaryTo; SU.spendTo = $('setupSpendTo').value || SU.spendTo; SU.salary = $('setupSalary').value; SU.payday = $('setupPayday').value; SU.make = $('setupMake').value;
+  saveDraft();
 }
 const suName = a => a.n.trim() || acct(a.k);
 // statements for a card with these days, as of today: the one that closed last and the one open now
@@ -1369,7 +1375,7 @@ function setupPotStatus(p) {
   return potLine({ goal: g, by: p.by || '', repeat: !!p.repeat, ...(m ? { monthly: m } : {}) }, bal, nextPay());
 }
 function renderSetup() {
-  if (!SU) SU = freshSetup();
+  if (!SU) SU = loadDraft() || freshSetup();
   // a bill and a spending category with the same name would budget the same money twice: the bill wins
   const billNames = new Set(SU.bills.map(b => b.n.trim().toLowerCase()).filter(Boolean));
   SU.cats = SU.cats.filter(c => !billNames.has(c.name.trim().toLowerCase()));
@@ -1426,7 +1432,7 @@ function renderSetup() {
     i.onchange = () => { readSetup(); if (isPicker(i)) return; if (i.dataset.redraw || i.dataset.su.endsWith('.n') || i.dataset.su.endsWith('.name')) renderSetup(); };
     if (isPicker(i)) i.onblur = () => { readSetup(); renderSetup(); };
   });
-  document.querySelectorAll('#s-setup [data-su], #setupMake, #setupSalary').forEach(i => { i.oninput = setupLive; });
+  document.querySelectorAll('#s-setup [data-su], #setupMake, #setupSalary, #setupPayday').forEach(i => { i.oninput = setupLive; });
   $('setupMake').onchange = setupLive;
   setupLive();
   document.querySelectorAll('#s-setup [data-del]').forEach(b => b.onclick = () => { readSetup(); const [list, i] = b.dataset.del.split('.');
@@ -1488,7 +1494,7 @@ function step1Error() {
 }
 $('nextBtn') && ($('nextBtn').onclick = () => {
   const e = step1Error(); $('setupMsg').textContent = e; if (e) return;
-  SU.step = 2; renderSetup(); window.scrollTo(0, 0);
+  SU.step = 2; saveDraft(); renderSetup(); window.scrollTo(0, 0);
 });
 $('backBtn') && ($('backBtn').onclick = () => { readSetup(); $('setupMsg').textContent = ''; SU.step = 1; renderSetup(); window.scrollTo(0, 0); });
 $('startBtn') && ($('startBtn').onclick = () => {
@@ -1534,7 +1540,7 @@ $('startBtn') && ($('startBtn').onclick = () => {
     if (x) { x.en = nm; x.th = nm; x.b = catB[i]; delete x.arch; } else ST.cats.push({ id: c.id, en: nm, th: nm, b: catB[i] }); });
   ST.payday = pday === 28 ? [] : [{ since: '0000-01-01', day: pday }];
   Object.assign(ST, { opening: o, openingStatements: os, setupDone: true, startDate: ST.today, sample: false });
-  SU = null; persist(); toast(tl('All set. Record your first entry with +', 'พร้อมแล้ว กด + เพื่อจดรายการแรก')); go('home'); let seen = false; try { seen = !!localStorage.getItem('toured'); } catch (e) {} if (!seen) showTour(0);
+  SU = null; dropDraft(); persist(); toast(tl('All set. Record your first entry with +', 'พร้อมแล้ว กด + เพื่อจดรายการแรก')); go('home'); let seen = false; try { seen = !!localStorage.getItem('toured'); } catch (e) {} if (!seen) showTour(0);
 });
 $('importFile2').onchange = importBackup;
 $('sampleBtn') && ($('sampleBtn').onclick = () => window.__app.loadSample());
