@@ -1293,6 +1293,14 @@ function setupStatements(c) {
   const open = C.statementOf(ST.today, d), last = prevMonth(open.close);
   return { open: open.close, openDue: open.due, last, lastDue: C.statementOf(last, d).due };
 }
+// a pocket's goal fields show when asked for, or when they already hold a value
+const potOpen = p => p.open !== undefined ? !!p.open : !!(String(p.goal || '').trim() || p.by || p.repeat);
+// the status line under a pocket's per-month input: goal progress, or what it takes to make the month
+function setupPotStatus(p) {
+  const g = sat0(p.goal) || 0, m = sat0(p.monthly) || 0, bal = sat0(p.bal) || 0;
+  if (!(g >= 0 && m >= 0 && bal >= 0)) return tl('Amounts must be 0 or more', 'ยอดต้องเป็น 0 ขึ้นไป');
+  return potLine({ goal: g, by: p.by || '', repeat: !!p.repeat, ...(m ? { monthly: m } : {}) }, bal, nextPay());
+}
 function renderSetup() {
   if (!SU) SU = freshSetup();
   // a bill and a spending category with the same name would budget the same money twice: the bill wins
@@ -1314,20 +1322,19 @@ function renderSetup() {
   $('setupSalaryTo').innerHTML = acctKeys.map(k => `<option value="${esc(k)}" ${k === SU.salaryTo ? 'selected' : ''}>${esc(aName(k))}</option>`).join('');
   $('setupSpendTo').innerHTML = acctKeys.map(k => `<option value="${esc(k)}" ${k === SU.spendTo ? 'selected' : ''}>${esc(aName(k))}</option>`).join('');
   $('setupSalary').value = SU.salary; $('setupPayday').value = SU.payday; $('setupMake').value = SU.make;
-  $('setupPotPlan').innerHTML = SU.pots.map((p, i) => p.id === 'cashflow' ? '' : `<div class="ln"><span class="k">${esc(p.name.trim() || tl('Pocket (no name yet)', 'กอง (ยังไม่ตั้งชื่อ)'))}</span>${num('pots', i, 'monthly', p.monthly)}</div>`).join('') || `<div class="ln"><span class="k">${tl('No pockets yet', 'ยังไม่มีกอง')}</span></div>`;
-  $('setupCats').innerHTML = SU.cats.map((c, i) => `<div class="ln"><span class="k">${esc(c.name)}</span>${num('cats', i, 'b', c.b)}</div>`).join('');
-  $('setupPots').innerHTML = SU.pots.map((p, i) => { const cf = p.id === 'cashflow', sat0 = v => (String(v ?? '').trim() === '' ? 0 : C.toSatang(v));
-    const plan = { goal: sat0(p.goal) || 0, by: p.by || '', repeat: !!p.repeat, ...(sat0(p.monthly) ? { monthly: sat0(p.monthly) } : {}) };
-    const ok = [plan.goal, plan.monthly || 0, sat0(p.bal)].every(v => v >= 0);
-    return `<div class="ln" style="flex-wrap:wrap;gap:6px"><input class="note" style="flex:1;min-width:0;padding:7px 10px" data-su="pots.${i}.name" value="${esc(p.name)}" placeholder="${tl('Pocket name', 'ชื่อกอง')}" aria-label="${tl('Pocket name', 'ชื่อกอง')}" ${cf ? 'readonly' : ''}>${cf ? '' : del('pots', i)}
-    <div class="pgoal" style="padding-left:0">
-      <label>${tl('Balance ฿', 'ยอดตอนนี้ ฿')}<input class="field" type="number" inputmode="decimal" step="0.01" min="0" data-su="pots.${i}.bal" data-redraw="1" value="${esc(p.bal)}" placeholder="0"></label>
-      ${cf ? `<span class="pline" style="grid-column:2/-1;align-self:end">${tl('Holds what is left (or covers what is short) at the end of each cycle. The app uses it, so it has no goal and cannot be renamed.', 'กองพักเงินเหลือ/ขาดตอนจบแต่ละรอบ แอปใช้เอง จึงไม่มีเป้าและเปลี่ยนชื่อไม่ได้')}</span>` : !(p.open || String(p.goal || '').trim() || p.by || String(p.monthly || '').trim()) ? `<button type="button" class="btn link" style="grid-column:2/-1;align-self:end;padding:6px 0" data-open="${i}">${tl('+ Goal', '+ ตั้งเป้า')}</button>` : `
+  $('setupPotPlan').innerHTML = SU.pots.map((p, i) => { if (p.id === 'cashflow') return '';
+    const open = potOpen(p), nm = esc(p.name.trim() || tl('Pocket (no name yet)', 'กอง (ยังไม่ตั้งชื่อ)'));
+    return `<div class="ln" style="flex-wrap:wrap;gap:6px"><span class="k">${nm}</span>${num('pots', i, 'monthly', p.monthly, '0', '" style="width:110px" aria-label="' + nm)}
+    <div class="pgoal" style="padding-left:0"><span class="pline" data-pst="${i}">${esc(setupPotStatus(p))}</span>
+      <button type="button" class="btn link" style="grid-column:1/-1;justify-self:start;padding:6px 0" data-open="${i}" aria-expanded="${open}">${open ? tl('Hide goal', 'ซ่อนเป้า') : tl('Goal', 'เป้า')}</button>${open ? `
       <label>${tl('Goal ฿', 'เป้า ฿')}<input class="field" type="number" inputmode="decimal" step="0.01" min="0" data-su="pots.${i}.goal" data-redraw="1" value="${esc(p.goal)}" placeholder="${tl('none', 'ไม่มี')}"></label>
       <label>${tl('Reach by', 'ครบภายใน')}<input class="field" type="month" data-su="pots.${i}.by" data-redraw="1" value="${esc(p.by)}"></label>
-      <label class="rep"><input type="checkbox" data-su="pots.${i}.repeat" data-redraw="1" ${p.repeat ? 'checked' : ''}> ${tl('Same goal every year', 'เป้าวนทุกปี')}</label>
-      ${ok && (plan.goal || plan.monthly) ? `<span class="pline">${esc(potLine(plan, sat0(p.bal) || 0, nextPay()))}</span>` : ''}`}
-    </div></div>`; }).join('');
+      <label class="rep"><input type="checkbox" data-su="pots.${i}.repeat" data-redraw="1" ${p.repeat ? 'checked' : ''}> ${tl('Same goal every year', 'เป้าวนทุกปี')}</label>` : ''}
+    </div></div>`; }).join('') || `<div class="ln"><span class="k">${tl('No pockets yet', 'ยังไม่มีกอง')}</span></div>`;
+  $('setupCats').innerHTML = SU.cats.map((c, i) => `<div class="ln"><span class="k">${esc(c.name)}</span>${num('cats', i, 'b', c.b)}</div>`).join('');
+  $('setupPots').innerHTML = SU.pots.map((p, i) => { const cf = p.id === 'cashflow';
+    return `<div class="ln" style="flex-wrap:wrap;gap:6px"><input class="note" style="flex:1;min-width:0;padding:7px 10px" data-su="pots.${i}.name" value="${esc(p.name)}" placeholder="${tl('Pocket name', 'ชื่อกอง')}" aria-label="${tl('Pocket name', 'ชื่อกอง')}" ${cf ? 'readonly' : ''}>${num('pots', i, 'bal', p.bal, '0', '" style="width:96px')}${cf ? '' : del('pots', i)}
+    ${cf ? `<span class="pline" style="flex-basis:100%;font-size:13px;color:var(--ink-2)">${tl('Holds what is left (or covers what is short) at the end of each cycle. The app uses it, so it has no goal and cannot be renamed.', 'กองพักเงินเหลือ/ขาดตอนจบแต่ละรอบ แอปใช้เอง จึงไม่มีเป้าและเปลี่ยนชื่อไม่ได้')}</span>` : ''}</div>`; }).join('');
   $('setupCards').innerHTML = SU.cards.map((c, i) => { const st = setupStatements(c);
     return `<div class="ledger">
     <div class="ln" style="gap:6px">${txt('cards', i, 'n', c.n, tl('Card name, e.g. SCB card', 'ชื่อบัตร เช่น บัตร SCB'))}${del('cards', i)}</div>
@@ -1341,7 +1348,7 @@ function renderSetup() {
   const bfName = k => C.isPot(k) ? (SU.pots.find(p => 'pot:' + p.id === k) || {}).name || '' : C.isCard(k) ? (SU.cards.find(c => c.k === k) || {}).n || acct(k) : aName(k);
   $('setupBills').innerHTML = SU.bills.map((b, i) => `<div class="ln brow">${txt('bills', i, 'n', b.n, tl('Bill name', 'ชื่อรายการ'))}${num('bills', i, 'amount', b.amount, '0', '" style="width:84px')}${del('bills', i)}
     <span class="bfrom">${tl('from', 'จ่ายจาก')} ${sel('bills', i, 'from', billFrom, b.from, bfName)}</span></div>`).join('');
-  document.querySelectorAll('#s-setup [data-open]').forEach(b => b.onclick = () => { readSetup(); SU.pots[+b.dataset.open].open = true; renderSetup(); });
+  document.querySelectorAll('#s-setup [data-open]').forEach(b => b.onclick = () => { readSetup(); const q = SU.pots[+b.dataset.open]; q.open = !potOpen(q); renderSetup(); });
   // wiring: any edit is read back into SU; a few need a redraw (names feed the dropdowns, days feed the card labels)
   const isPicker = i => i.type === 'month' || i.type === 'date';
   document.querySelectorAll('#s-setup [data-su]').forEach(i => {
@@ -1380,6 +1387,7 @@ function setupLive() {
     : `<span>${tl('Pockets add up to more than the total', 'กองรวมเกินยอดรวม')}</span><b>฿${fm(-n.unsplit)}</b>`;
   $('nextBtn').disabled = n.unsplit !== 0;
   $('setupAssign').className = 'assign' + (n.left === 0 ? ' ok' : ''); $('setupAssign').innerHTML = assignHTML(n.left);
+  document.querySelectorAll('#s-setup [data-pst]').forEach(e => { const p = SU.pots[+e.dataset.pst]; if (p) e.textContent = setupPotStatus(p); });
   $('setupPotSum').textContent = '฿' + fm0(n.potSum); $('setupBillSum').textContent = '฿' + fm0(n.billSum); $('setupCatSum').textContent = '฿' + fm0(n.catSum);
 }
 // what step 1 asks for, checked before moving on ('' when fine); the account filter matches Start's
