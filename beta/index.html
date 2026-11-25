@@ -118,6 +118,7 @@ input{font:inherit;color:var(--ink)}
 .amount{border:0;background:transparent;font-family:var(--f-num);font-size:36px;font-weight:600;letter-spacing:-.04em;width:7ch;text-align:left;padding:0}
 .amount:focus{outline:0}
 .amount::placeholder{color:var(--line)}
+.rec1{gap:10px}.rec1 .sel{flex:none}.rec1 .field{flex:1;min-width:0;text-align:right}
 input::placeholder{color:var(--ink-3);opacity:1}
 .group{display:flex;flex-direction:column;gap:8px}
 .group > span{font-size:13px;color:var(--ink-2)}
@@ -623,12 +624,9 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
     <div class="sec">
       <h2><span class="h" data-en="Check against your bank app" data-th="เช็กยอดกับแอปธนาคาร">Check against your bank app</span></h2>
       <div class="ledger">
-        <div class="ln"><span class="k" data-en="Account" data-th="บัญชี">Account</span><select class="sel" id="recSel"></select></div>
-        <div class="ln"><span class="k" id="recLbl">Balance in the bank app</span><input class="field" id="realScb" type="number" inputmode="decimal" step="0.01"></div>
-        <div class="ln"><span class="k" data-en="Balance in this ledger" data-th="ยอดที่จดไว้">Balance in this ledger</span><span class="num" id="bookScb"></span></div>
-        <div class="ln sum"><span class="k" data-en="Difference" data-th="ส่วนต่าง">Difference</span><span class="num" id="diff"></span></div>
+        <div class="ln rec1"><select class="sel" id="recSel" aria-label="Account"></select><input class="field" id="realScb" type="number" inputmode="decimal" step="0.01"></div>
+        <div class="ln"><span class="k" id="diffNote"></span><span class="num" id="diff"></span></div>
       </div>
-      <p class="hint" id="diffNote"></p>
       <button class="btn ghost" id="adjBtn" hidden data-en="Record the difference as an adjustment" data-th="บันทึกส่วนต่างเป็นรายการปรับยอด">Record the difference</button>
     </div>
   </section>

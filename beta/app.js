@@ -353,17 +353,16 @@ function wallet() {
   if (!RA || !accts.includes(RA)) RA = accts.includes(ST.spendTo) ? ST.spendTo : accts[0];
   $('recSel').innerHTML = opts(accts, RA);
   $('recSel').onchange = () => { RA = $('recSel').value; delete $('realScb').dataset.touched; wallet(); };
-  $('recLbl').textContent = tl(`Balance in the ${acct(RA)} app`, `ยอดในแอป ${acct(RA)}`);
+  $('realScb').setAttribute('aria-label', tl(`Balance in the ${acct(RA)} app`, `ยอดในแอป ${acct(RA)}`));
   const bank = $('realScb'); if (!bank.dataset.touched) bank.value = ((b[RA] || 0) / 100).toFixed(2);
   reconcile();
 }
 function reconcile() {
   const book = C.balances(ST, { asOf: ST.today })[RA] || 0, real = C.toSatang($('realScb').value);
-  $('bookScb').textContent = fm(book);
-  if (Number.isNaN(real)) { $('diff').textContent = '—'; $('diffNote').textContent = ''; $('adjBtn').hidden = true; return; }
+  if (Number.isNaN(real)) { $('diff').textContent = '—'; $('diffNote').textContent = tl(`Type the balance from the ${acct(RA)} app`, `ใส่ยอดจากแอป ${acct(RA)}`); $('adjBtn').hidden = true; return; }
   const diff = real - book, ok = diff === 0;
-  $('diff').textContent = (diff > 0 ? '+' : '') + fm(diff); $('diff').className = 'num ' + (ok ? 'pos' : 'neg');
-  $('diffNote').textContent = ok ? tl('Matches the bank.', 'ตรงกับธนาคารแล้ว') : tl(`Off by ฿${fm(Math.abs(diff))}. Look for a missed entry near that amount, or record the difference as an adjustment.`, `ต่างกัน ฿${fm(Math.abs(diff))} · ลองหารายการที่ลืมจด หรือบันทึกเป็นรายการปรับยอด`);
+  $('diff').textContent = ok ? tl('Match', 'ตรง') : (diff > 0 ? '+' : '−') + fm(Math.abs(diff)); $('diff').className = 'num ' + (ok ? 'pos' : 'neg');
+  $('diffNote').textContent = ok ? tl('Matches what you recorded', 'ตรงกับที่จดไว้') : tl(`Recorded ${fmS(book)} · look for a missed entry`, `ที่จดไว้ ${fmS(book)} · ลองหารายการที่ลืมจด`);
   $('adjBtn').hidden = ok;
   $('adjBtn').onclick = () => {
     const e = diff < 0 ? { type: 'expense', date: ST.today, amount: -diff, from: RA, cat: 'other', note: tl('Bank adjustment', 'ปรับยอดธนาคาร') } : { type: 'income', date: ST.today, amount: diff, to: RA, cat: 'other-in', note: tl('Bank adjustment', 'ปรับยอดธนาคาร') };
