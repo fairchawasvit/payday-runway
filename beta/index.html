@@ -713,7 +713,7 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
     <div class="sec"><h2><span class="h" data-en="Accounts" data-th="บัญชี">Accounts</span><span class="num" id="wAcctSum"></span></h2><div class="ledger" id="wAccts"></div></div>
     <div class="sec" id="wCardSec"><h2><span class="h" data-en="Credit cards" data-th="บัตรเครดิต">Credit cards</span><span class="num neg" id="wCardSum"></span></h2><div class="ledger" id="wCards"></div></div>
     <div class="sec" id="wLoanSec" hidden><h2><span class="h" data-en="Loans" data-th="หนี้ผ่อน">Loans</span><span class="num" id="wLoanSum"></span></h2><div class="ledger" id="wLoans"></div></div>
-    <div class="sec"><h2><span class="h" data-en="MAKE pockets" data-th="กองใน MAKE">MAKE pockets</span><span class="num" id="potSum"></span></h2><div class="ledger" id="pots"></div><button class="btn link" id="toPlan" data-en="Salary split plan ›" data-th="แผนแบ่งเงินเดือน ›">Salary split plan ›</button></div>
+    <div class="sec"><h2><span class="h" data-en="MAKE pockets" data-th="กองใน MAKE">MAKE pockets</span><span class="num" id="potSum"></span></h2><div class="ledger" id="pots"></div><button class="btn link" id="toPlan" data-en="Salary plan ›" data-th="แผนเงินเดือน ›">Salary plan ›</button></div>
     <div class="sec" id="pplSec">
       <h2><span class="h" data-en="People" data-th="คนที่ค้างกัน">People</span><span class="num pos" id="pplSum"></span></h2>
       <div class="ledger" id="ppl"></div>
@@ -845,7 +845,7 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
 
   <!-- SPLIT -->
   <section class="screen" id="s-plan" hidden>
-    <div class="top"><div><h1 data-en="This cycle's plan" data-th="แผนรอบนี้">This cycle's plan</h1><div class="cycle" id="cpSub"></div></div><button class="lang" data-back data-en="Back" data-th="กลับ">Back</button></div>
+    <div class="top"><div><h1 data-en="Salary plan" data-th="แผนเงินเดือน">Salary plan</h1><div class="cycle" id="cpSub"></div></div><button class="lang" data-back data-en="Back" data-th="กลับ">Back</button></div>
     <div class="cplan" id="cyclePlan"></div>
     <div class="sec" style="margin-top:8px"><h2><span class="h" data-en="Move the salary" data-th="โอนเงินเดือน">Move the salary</span><span id="planSub"></span></h2></div>
     <div class="ledger" style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
@@ -867,7 +867,7 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
     <div class="sec fold"><h2><span class="h" data-en="Credit cards" data-th="บัตรเครดิต">Credit cards</span></h2><div class="ledger" id="cardEd"></div>
       <p class="hint" data-en="New statement days start after the statement that is open now closes, so past bills never move." data-th="วันสรุปยอดใหม่มีผลหลังรอบที่เปิดอยู่ตอนนี้ปิด บิลเก่าไม่ขยับ">New days start from the next statement.</p></div>
     <div class="sec fold"><h2><span class="h" data-en="Monthly must-pay bills" data-th="รายจ่ายจำเป็นทุกเดือน">Monthly bills</span></h2><div class="ledger" id="billEd"></div>
-      <button class="btn link" data-goplan data-en="See bills in this cycle's plan ›" data-th="ดูบิลในแผนรอบนี้ ›">See bills in this cycle's plan ›</button>
+      <button class="btn link" data-goplan data-en="See bills in the salary plan ›" data-th="ดูบิลในแผนเงินเดือน ›">See bills in the salary plan ›</button>
       <p class="hint" data-en="Set aside from Safe to spend each cycle until you record paying it (pick the bill when you add the expense)." data-th="กันไว้จาก 'ใช้ได้จริง' ทุกรอบ จนกว่าจะจดว่าจ่าย (ตอนจดให้เลือกรายการนี้)">Set aside until paid.</p></div>
     <div class="sec fold"><h2><span class="h" data-en="Salary" data-th="เงินเดือน">Salary</span></h2>
       <div class="ledger"><div class="ln"><span class="k" data-en="Monthly salary" data-th="เงินเดือน">Monthly salary</span><input class="field" id="salaryIn" type="number" inputmode="decimal" step="0.01" min="0"></div>
@@ -878,11 +878,11 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
     <div class="sec fold"><h2><span class="h" data-en="Pockets" data-th="กอง">Pockets</span></h2>
       <div class="ledger" id="potEd"></div>
       <div class="ledger" style="margin-top:8px"><div class="ln"><span class="k"><span data-en="Cash flow floor" data-th="Cash flow ขั้นต่ำ">Cash flow floor</span><small data-en="Warn me when Cash flow drops below this. 0 = off." data-th="เตือนเมื่อ Cash flow ต่ำกว่านี้ · 0 = ไม่เตือน">Warn me below this. 0 = off.</small></span><input class="field" id="cfFloorIn" type="number" inputmode="decimal" step="0.01" min="0" aria-label="Cash flow floor"></div></div>
-      <button class="btn link" data-goplan data-en="Monthly amounts are in this cycle's plan ›" data-th="ยอดโอนต่อเดือนอยู่ในแผนรอบนี้ ›">Monthly amounts are in this cycle's plan ›</button>
+      <button class="btn link" data-goplan data-en="See pocket transfers in the salary plan ›" data-th="ดูยอดโอนเข้ากองในแผนเงินเดือน ›">See pocket transfers in the salary plan ›</button>
       <p class="hint" data-en="A pocket can be archived only when it is empty. Renaming here does not rename it in MAKE." data-th="เก็บกองได้เมื่อยอดเป็นศูนย์ · เปลี่ยนชื่อที่นี่ไม่ได้เปลี่ยนใน MAKE">A pocket can be archived only when empty.</p></div>
     <div class="sec fold"><h2><span class="h" data-en="Categories" data-th="หมวด">Categories</span><span data-en="Budget / cycle" data-th="งบ / รอบ">Budget / cycle</span></h2>
       <div class="ledger" id="catEd"></div>
-      <button class="btn link" data-goplan data-en="Set budgets in this cycle's plan ›" data-th="ตั้งงบในแผนรอบนี้ ›">Set budgets in this cycle's plan ›</button>
+      <button class="btn link" data-goplan data-en="Set budgets in the salary plan ›" data-th="ตั้งงบในแผนเงินเดือน ›">Set budgets in the salary plan ›</button>
       <p class="hint" data-en="Rename anytime: past entries follow the new name. Archive hides a category from new entries but keeps its history." data-th="เปลี่ยนชื่อได้ตลอด รายการเก่าเปลี่ยนตาม · เก็บ = ซ่อนจากการจดใหม่ แต่ประวัติยังอยู่">Rename anytime.</p></div>
     <div class="sec fold"><h2><span class="h" data-en="Starting balances" data-th="ยอดตอนเริ่มใช้">Starting balances</span></h2><div class="ledger" id="openEd"></div>
       <p class="hint" data-en="What each one held before your first entry. Fix a typo here, or fill in an account or card you added later. Entries you recorded stay as they are." data-th="ยอดที่มีอยู่ก่อนเริ่มจด แก้เลขที่กรอกผิด หรือใส่ยอดของบัญชี/บัตรที่เพิ่มทีหลังได้ที่นี่ รายการที่จดไว้ไม่เปลี่ยน">Starting balances.</p></div>

@@ -423,7 +423,7 @@
   function catSpend(state, from, to) {
     const by = {};
     for (const e of state.entries) {
-      if (e.type !== 'expense' || e.pre || e.bill || /^plan:.*:mom-bills/.test(e.tag || '') || isPot(e.from) || e.date < from || e.date > to) continue;
+      if (e.type !== 'expense' || e.bill || /^plan:.*:mom-bills/.test(e.tag || '') || isPot(e.from) || e.date < from || e.date > to) continue;
       by[e.cat] = (by[e.cat] || 0) + myShare(e);
     }
     return by;
