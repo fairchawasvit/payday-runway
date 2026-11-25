@@ -1,5 +1,5 @@
 /* Offline support. Bump VERSION on every release so phones pick up the new files. */
-const VERSION = 'beta-runway-9';
+const VERSION = 'beta-runway-10';
 const FILES = ['./', 'index.html', 'core.js', 'store.js', 'help.js', 'app.js', 'manifest.webmanifest', 'icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {

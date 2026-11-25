@@ -13,6 +13,7 @@ const MTH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','ม�
 const DEN = ['Su','Mo','Tu','We','Th','Fr','Sa'], DTH = ['อา','จ','อ','พ','พฤ','ศ','ส'];
 const MN = () => (L === 'th' ? MTH : MEN);
 const fm = s => (s / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmS = s => (s < 0 ? '−฿' : '฿') + fm(Math.abs(s)); // one minus style everywhere: −฿1,000.00
 const fm0 = s => Math.round(s / 100).toLocaleString('en-US');
 const dl = d => { const [, m, dd] = d.split('-').map(Number); return `${dd} ${MN()[m - 1]}`; };
 const dly = d => `${dl(d)} ${d.slice(0, 4)}`;
@@ -239,7 +240,7 @@ function home() {
         ? `<span>${esc(tl(`${acct(neg[0])} is −฿${fm0(-r.balances[neg[0]])}, which cannot be right`, `${acct(neg[0])} ติดลบ ฿${fm0(-r.balances[neg[0]])} ซึ่งเป็นไปไม่ได้`) + (parts ? ' · ' + tl('also ', 'และหัก ') + parts : '') + tl(' · see To do', ' · ดูในต้องจัดการ'))}</span>`
         : `<span>${esc(tl(`Money in accounts ฿${fm0(r.liquid)} is less than ${parts}`, `เงินในบัญชี ฿${fm0(r.liquid)} น้อยกว่า ${parts}`))}</span>`;
     } }
-  $('perDay').innerHTML = r.safe < 0 ? `<b style="color:#ff9b85">${tl('Already overspent', 'ใช้เกินไปแล้ว')}</b>` : tl(`<span class="num">฿${fm0(Math.max(0, r.perDay))}</span> a day`, `วันละ <span class="num">฿${fm0(Math.max(0, r.perDay))}</span>`);
+  $('perDay').innerHTML = r.safe < 0 ? `<b style="color:#ff9b85">${r.safe + r.reserved >= 0 ? tl('Bills set aside are more than you have', 'บิลที่กันไว้มากกว่าเงินที่มี') : tl('Short this cycle', 'รอบนี้เงินไม่พอ')}</b>` : tl(`<span class="num">฿${fm0(Math.max(0, r.perDay))}</span> a day`, `วันละ <span class="num">฿${fm0(Math.max(0, r.perDay))}</span>`);
   // how far through the cycle we are
   const span = C.daysBetween(cyc.start, cyc.end) + 1, gone = C.daysBetween(cyc.start, ST.today) + 1;
 
@@ -286,18 +287,21 @@ function home() {
     if ((r.daysLeft <= 2 || pay <= ST.today) && !salDone) T.unshift({ id: 'plan', ico: 'i-split', t: pay <= ST.today ? tl(`Salary for the cycle from ${dl(pay)} in yet? Split it when it is`, `เงินเดือนรอบ ${dl(pay)} เข้าหรือยัง? เข้าแล้วกดแบ่งเงิน`) : tl(`New cycle ${dl(pay)}: split your salary when it arrives`, `รอบใหม่เริ่ม ${dl(pay)} · เงินเดือนเข้าแล้วกดแบ่งเงิน`),
       sub: tl(`฿${fm(ST.salary)} into ${acct(ST.salaryTo)}`, `฿${fm(ST.salary)} เข้า ${acct(ST.salaryTo)}`), btn: tl('Open', 'เปิด'), fn: () => go('plan') }); }
   if (r.daysLeft <= 3) {
-    const amt = Math.abs(r.safe);
+    const cf = r.balances['pot:cashflow'] || 0, amt = r.safe > 0 ? r.safe : Math.min(-r.safe, Math.max(0, cf));
     if (amt) T.push({ id: 'close', cls: r.safe < 0 ? 'red' : 'grey', ico: 'i-route',
-      t: r.safe > 0 ? tl(`Cycle ends ${dl(cyc.end)} with ฿${fm(r.safe)} left`, `จบรอบ ${dl(cyc.end)} จะเหลือ ฿${fm(r.safe)}`) : tl(`Over budget by ฿${fm(-r.safe)}`, `รอบนี้เกินงบ ฿${fm(-r.safe)}`),
-      sub: r.safe > 0 ? tl('Move it to Cash flow', 'ย้ายเข้า Cash flow (กองพักเงิน)') : tl('Cover it from Cash flow', 'ดึงจาก Cash flow (กองพักเงิน) มาเติม'), btn: r.safe > 0 ? tl('Move', 'ย้าย') : tl('Cover', 'ดึงมา'),
+      t: r.safe > 0 ? tl(`Cycle ends ${dl(cyc.end)} with ฿${fm(r.safe)} left`, `จบรอบ ${dl(cyc.end)} จะเหลือ ฿${fm(r.safe)}`) : tl(`Short ฿${fm(-r.safe)} this cycle`, `รอบนี้เงินขาด ฿${fm(-r.safe)}`),
+      sub: r.safe > 0 ? tl('Move it to Cash flow', 'ย้ายเข้า Cash flow (กองพักเงิน)') : (amt < -r.safe ? tl(`Cash flow has ฿${fm(amt)}: cover that much`, `Cash flow มี ฿${fm(amt)} · ดึงมาได้เท่านี้`) : tl(`Cover ฿${fm(amt)} from Cash flow`, `ดึง ฿${fm(amt)} จาก Cash flow (กองพักเงิน) มาเติม`)), btn: r.safe > 0 ? tl('Move', 'ย้าย') : tl('Cover', 'ดึงมา'),
       fn: () => attempt(r.safe > 0 ? { type: 'transfer', date: ST.today, amount: amt, from: ST.spendTo, to: 'pot:cashflow', note: 'cycle close' } : { type: 'transfer', date: ST.today, amount: amt, from: 'pot:cashflow', to: ST.spendTo, note: 'cycle close' }) && home() });
   }
   if (!ST.sample && ST.entries.length >= 10 && (!ST.lastBackup || C.daysBetween(ST.lastBackup, ST.today) > 30))
     T.push({ id: 'backup', cls: 'grey', ico: 'i-bell', t: tl('Back up your data', 'ถึงเวลาสำรองข้อมูล'), sub: tl('It lives only on this phone', 'ข้อมูลอยู่ในเครื่องนี้เท่านั้น'), btn: tl('Back up', 'สำรอง'), fn: () => { go('set'); openFold('Backup'); } });
   T.sort((x, y) => (y.cls === 'danger') - (x.cls === 'danger')); // a balance that cannot be right always comes first
   $('todoN').textContent = T.length ? String(T.length) : '';
-  $('todo').innerHTML = T.length ? T.map((x, i) => `<div class="todo ${x.cls || ''}" data-todo="${x.id}"><span class="ico"><svg class="i"><use href="#${x.ico}"/></svg></span><div class="txt"><span>${esc(x.t)}</span><small>${esc(x.sub)}</small></div><button data-i="${i}">${esc(x.btn)}</button></div>`).join('')
+  const SHOW = TODO_ALL ? T.length : 2;
+  $('todo').innerHTML = T.length ? T.map((x, i) => `<div class="todo ${x.cls || ''}" data-todo="${x.id}"${i >= SHOW ? ' hidden' : ''}><span class="ico"><svg class="i"><use href="#${x.ico}"/></svg></span><div class="txt"><span>${esc(x.t)}</span><small>${esc(x.sub)}</small></div><button data-i="${i}">${esc(x.btn)}</button></div>`).join('')
+    + (T.length > SHOW ? `<button type="button" class="btn link" id="todoMore">${tl(`Show ${T.length - SHOW} more`, `ดูอีก ${T.length - SHOW} เรื่อง`)}</button>` : '')
     : `<p class="none">${tl('Nothing to do. All caught up.', 'ไม่มีอะไรค้าง เรียบร้อยดี')}</p>`;
+  if ($('todoMore')) $('todoMore').onclick = () => { TODO_ALL = true; home(); };
   $('todo').querySelectorAll('button[data-i]').forEach(btn => btn.onclick = () => T[+btn.dataset.i].fn());
 
   // wallet strip
@@ -309,11 +313,12 @@ function home() {
   $('recent').innerHTML = sorted().filter(e => e.date <= ST.today).slice(0, 5).map(rowHTML).join('');
   bindRows($('recent'));
 }
+let TODO_ALL = false; // Home shows the two most urgent to-dos until asked for the rest
 let RA = null; // account being checked against the bank app
 function wallet() {
   const r = C.safeToSpend(ST, ST.today), b = r.balances;
   const accts = liveAccts();
-  $('wAcctSum').textContent = '฿' + fm(accts.reduce((s, k) => s + (b[k] || 0), 0));
+  $('wAcctSum').textContent = fmS(accts.reduce((s, k) => s + (b[k] || 0), 0));
   const wr = (hf, ico, name, sub, val, cls = '') => `<button class="wrow" data-hf="${esc(hf)}"><span class="sico" style="margin:0"><svg class="i"><use href="#${ico}"/></svg></span><span class="k">${esc(name)}${sub ? `<small>${sub}</small>` : ''}</span><b class="num ${cls}">${val}</b><span class="chev">›</span></button>`;
   $('wAccts').innerHTML = accts.map(k => wr('a:' + k, k === 'CASH' ? 'i-wallet' : 'i-home', acct(k), [k === ST.salaryTo ? tl('salary in', 'เงินเดือนเข้า') : '', k === ST.spendTo ? tl('spending', 'ใช้จ่ายประจำ') : ''].filter(Boolean).join(' · '), fm(b[k] || 0))).join('');
   const cards = liveCards();
@@ -328,7 +333,7 @@ function wallet() {
   document.querySelectorAll('#s-wallet [data-hf]').forEach(x => x.onclick = () => { HF = x.dataset.hf; go('hist'); });
   // pockets
   const pots = ST.pots.filter(p => !p.arch);
-  $('potSum').textContent = '฿' + fm(pots.reduce((s, p) => s + (b['pot:' + p.id] || 0), 0));
+  $('potSum').textContent = fmS(pots.reduce((s, p) => s + (b['pot:' + p.id] || 0), 0));
   $('pots').innerHTML = pots.map(p => { const have = b['pot:' + p.id] || 0;
     const x = C.potPlan(p, have, nextPay()), late = x.status === 'late';
     return `<div class="pk"><span>${esc(pn(p))}</span><span class="num">${fm(have)}</span>${p.goal ? `<div class="meta"><div class="bar"><i style="width:${Math.max(0, Math.min(100, have / p.goal * 100))}%"></i></div><span class="num">${fm0(p.goal)}</span></div>` : ''}${p.id === 'cashflow' ? '' : `<div class="meta" style="${late ? 'color:var(--debit)' : ''}">${esc(potLine(p, have, nextPay()))}</div>`}</div>`; }).join('');
