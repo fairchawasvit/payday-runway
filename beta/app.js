@@ -153,6 +153,22 @@ const cardCfg = k => (ST.cards || []).find(x => x.k === k);
 const liveAccts = () => ST.accounts.filter(x => !x.arch).map(x => x.k);
 const liveCards = () => ST.cards.filter(x => !x.arch).map(x => x.k);
 const billName = b => b.n || cn(b.cat);
+// ---------- loans on bills ----------
+const ymL = ym => { const [y, m] = ym.split('-').map(Number); return `${MN()[m - 1]} ${y}`; };
+// "฿X left · N payments · ends Mon YYYY" for a loan on a bill; total/before in satang, bill.amount = one payment
+function loanLine(bill, total, before) {
+  if (!(total > 0)) return '';
+  if (!(before >= 0)) return tl('Paid so far must be 0 or more', 'ยอดที่จ่ายไปแล้วต้องเป็น 0 ขึ้นไป');
+  if (!(bill.amount > 0)) return tl('Enter the amount per payment above first', 'ใส่ยอดต่องวดด้านบนก่อน');
+  const x = C.loanStatus(ST, { ...bill, loan: { total, paidBefore: before } }, ST.today);
+  return x.left ? tl(`฿${fm0(x.left)} left · ${x.nLeft} more payments · ends ${ymL(x.endYm)}`, `เหลือ ฿${fm0(x.left)} · อีก ${x.nLeft} งวด · หมด ${ymL(x.endYm)}`) : tl('Paid off', 'ผ่อนครบแล้ว');
+}
+// the optional loan block under a bill row: a link, two inputs and a live line; callers pass their own input markup
+function loanHTML(i, open, linkAttr, totalInput, beforeInput) {
+  return `<span class="loanrow"><button type="button" class="loanlink" ${linkAttr} aria-expanded="${open}">${open ? tl('Hide loan', 'ซ่อนยอดผ่อน') : tl('+ Loan total', '+ ยอดผ่อนทั้งหมด')}</button></span>` + (open ? `
+    <div class="lgrid"><label>${tl('Loan total ฿', 'ยอดผ่อนทั้งหมด ฿')}${totalInput}</label><label><span>${tl('Paid so far ฿', 'จ่ายไปแล้ว ฿')} <small>${tl('(before this app)', '(ก่อนใช้แอป)')}</small></span>${beforeInput}</label></div>
+    <span class="loanline" data-lline="${i}" aria-live="polite"></span>` : '');
+}
 const cardFrom = k => (cardCfg(k) || {}).from || ST.spendTo;
 // friends: names typed before plus anyone who appears in the data (never Mom: she is not split with)
 const friendList = () => [...new Set([...ST.people, ...ST.entries.flatMap(e => (e.shares || []).map(s => s.p))])];
@@ -438,6 +454,14 @@ function wallet() {
       tl(`Not billed ฿${fm(openAmt)} · closes ${dl(nx.close)}`, `ยังไม่ออกบิล ฿${fm(openAmt)} · สรุป ${dl(nx.close)}`)].join('<br>');
     return wr('cards', 'i-card', acct(k), sub, fm(cardOwed(k)), cardOwed(k) > 0 ? 'neg' : ''); }).join('');
   document.querySelectorAll('#s-wallet [data-hf]').forEach(x => x.onclick = () => { HF = x.dataset.hf; go('hist'); });
+  // loans on bills
+  const loans = (ST.bills || []).map(bl => ({ bl, x: C.loanStatus(ST, bl, ST.today) })).filter(o => o.x);
+  $('wLoanSec').hidden = !loans.length;
+  $('wLoanSum').textContent = '฿' + fm0(loans.reduce((s, o) => s + o.x.left, 0));
+  $('wLoans').innerHTML = loans.map(({ bl, x }) => { const pct = Math.min(100, x.paid / x.total * 100);
+    return `<div class="loan"><span class="k">${esc(billName(bl))}<small>${x.left ? tl(`฿${fm0(x.perPay)} per payment · paid ${Math.min(x.nPaid, x.nTotal)} of ${x.nTotal}`, `งวดละ ฿${fm0(x.perPay)} · จ่ายแล้ว ${Math.min(x.nPaid, x.nTotal)} จาก ${x.nTotal} งวด`) : tl('Paid off. You can remove this bill in Settings.', 'ผ่อนครบแล้ว ลบบิลนี้ได้ในตั้งค่า')}</small></span>
+    <span class="r"><b class="num">฿${fm0(x.left)}</b>${x.endYm ? `<small>${tl('ends ', 'หมด ')}${ymL(x.endYm)}</small>` : ''}</span>
+    <div class="bar" role="img" aria-label="${Math.round(pct)}%"><i style="width:${pct}%"></i></div></div>`; }).join('');
   // pockets
   const pots = ST.pots.filter(p => !p.arch);
   $('potSum').textContent = fmS(pots.reduce((s, p) => s + (b['pot:' + p.id] || 0), 0));
@@ -1217,14 +1241,28 @@ function renderMoneySettings(bal) {
     ST.cards.push({ k: 'card:c' + Date.now(), n: v, from: ST.spendTo, start: ST.today, sched: [{ since: '0000-01-01', close: 17, due: 2 }] }); saved(tl('Card added. Set its days below.', 'เพิ่มบัตรแล้ว ตั้งวันสรุปยอดด้านล่าง')); };
   // monthly bills
   ST.bills = ST.bills || [];
+  const loanOpen = b => (b.id in LOANUI ? LOANUI[b.id] : !!b.loan);
+  const loanVal = v => (v ? String(v / 100) : '');
   $('billEd').innerHTML = ST.bills.map((b, i) => `<div class="ed" style="flex-wrap:wrap;row-gap:6px"><input class="name" id="bn${i}" value="${esc(billName(b))}" aria-label="${tl('Bill name', 'ชื่อรายการ')}">
     <input class="field" id="ba${i}" type="number" min="0" step="0.01" value="${b.amount / 100}" aria-label="${tl('Amount', 'ยอด')}"><button class="act" id="bx${i}">${tl('Remove', 'ลบ')}</button>
-    <span class="lnsub" style="flex-basis:100%">${tl('Paid from', 'จ่ายจาก')} <select class="sel" id="bf${i}">${opts(billSources(b.from), b.from)}</select></span></div>`).join('') +
+    <span class="lnsub" style="flex-basis:100%">${tl('Paid from', 'จ่ายจาก')} <select class="sel" id="bf${i}">${opts(billSources(b.from), b.from)}</select></span>
+    ${loanHTML(i, loanOpen(b), `id="bl${i}"`, `<input class="field" id="bt${i}" type="number" inputmode="decimal" min="0" step="0.01" value="${loanVal(b.loan && b.loan.total)}">`, `<input class="field" id="bp${i}" type="number" inputmode="decimal" min="0" step="0.01" value="${loanVal(b.loan && b.loan.paidBefore)}">`)}</div>`).join('') +
     `<div class="addrow"><input id="newBill" placeholder="${tl('New bill, e.g. Rent', 'รายการใหม่ เช่น ค่าหอ')}" aria-label="${tl('New bill', 'รายการใหม่')}"><button id="addBill">${tl('Add', 'เพิ่ม')}</button></div>`;
   ST.bills.forEach((b, i) => {
     $('bn' + i).onchange = ev => { const v = ev.target.value.trim(); if (!v) { ev.target.value = billName(b); return; } b.n = v; saved(); };
     $('ba' + i).onchange = ev => { const v = C.toSatang(ev.target.value); if (!(v > 0)) { toast(tl('Enter an amount above 0', 'ใส่ยอดมากกว่า 0')); renderSet(); return; } b.amount = v; saved(); };
     $('bf' + i).onchange = ev => { b.from = ev.target.value; saved(); };
+    $('bl' + i).onclick = () => { LOANUI[b.id] = !loanOpen(b); renderSet(); };
+    if ($('bt' + i)) {
+      const line = () => { const l = document.querySelector(`#billEd [data-lline="${i}"]`); l.textContent = loanLine(b, sat0($('bt' + i).value), sat0($('bp' + i).value)); };
+      $('bt' + i).oninput = $('bp' + i).oninput = line; line();
+      $('bt' + i).onchange = $('bp' + i).onchange = () => {
+        const t = sat0($('bt' + i).value), p = sat0($('bp' + i).value);
+        if (!(t >= 0) || !(p >= 0)) { toast(tl('Enter 0 or more', 'ใส่ 0 ขึ้นไป')); return; }
+        if (t > 0) b.loan = { total: t, paidBefore: p }; else delete b.loan; // an empty total removes the loan
+        persist(); toast(tl('Saved', 'บันทึกแล้ว')); line();
+      };
+    }
     $('bx' + i).onclick = ev => { const el = ev.currentTarget; if (!el.dataset.armed) { el.dataset.armed = 1; el.textContent = tl('Tap again', 'แตะอีกครั้ง'); return; }
       ST.bills.splice(i, 1); saved(tl('Bill removed. Past entries stay.', 'ลบแล้ว รายการที่จดไว้ยังอยู่')); };
   });
@@ -1322,6 +1360,7 @@ function setupStatements(c) {
   return { open: open.close, openDue: open.due, last, lastDue: C.statementOf(last, d).due };
 }
 // a pocket's goal fields show when asked for, or when they already hold a value
+const LOANUI = {}; // bill id -> loan block shown or hidden (default: shown when the bill has a loan)
 const potOpen = p => p.open !== undefined ? !!p.open : !!(String(p.goal || '').trim() || p.by || p.repeat);
 // the status line under a pocket's per-month input: goal progress, or what it takes to make the month
 function setupPotStatus(p) {
@@ -1375,8 +1414,11 @@ function renderSetup() {
       : `<div class="ln"><span class="k" style="color:var(--debit)">${tl('Days must be 1 to 28', 'วันต้องอยู่ระหว่าง 1 ถึง 28')}</span></div>`}</div>`; }).join('');
   const billFrom = [...acctKeys, ...SU.cards.map(c => c.k)];
   const bfName = k => C.isPot(k) ? (SU.pots.find(p => 'pot:' + p.id === k) || {}).name || '' : C.isCard(k) ? (SU.cards.find(c => c.k === k) || {}).n || acct(k) : aName(k);
+  const sLoanOpen = b => (b.lopen !== undefined ? b.lopen : !!String(b.ltotal || '').trim());
   $('setupBills').innerHTML = SU.bills.map((b, i) => `<div class="ln brow">${txt('bills', i, 'n', b.n, tl('Bill name', 'ชื่อรายการ'))}${num('bills', i, 'amount', b.amount, '0', '" style="width:84px')}${del('bills', i)}
-    <span class="bfrom">${tl('from', 'จ่ายจาก')} ${sel('bills', i, 'from', billFrom, b.from, bfName)}</span></div>`).join('');
+    <span class="bfrom">${tl('from', 'จ่ายจาก')} ${sel('bills', i, 'from', billFrom, b.from, bfName)}</span>
+    ${loanHTML(i, sLoanOpen(b), `data-lopen="${i}"`, num('bills', i, 'ltotal', b.ltotal || '', '0'), num('bills', i, 'lbefore', b.lbefore || '', '0'))}</div>`).join('');
+  document.querySelectorAll('#s-setup [data-lopen]').forEach(x => x.onclick = () => { readSetup(); const b = SU.bills[+x.dataset.lopen]; b.lopen = !sLoanOpen(b); renderSetup(); });
   document.querySelectorAll('#s-setup [data-open]').forEach(b => b.onclick = () => { readSetup(); const q = SU.pots[+b.dataset.open]; q.open = !potOpen(q); renderSetup(); });
   // wiring: any edit is read back into SU; a few need a redraw (names feed the dropdowns, days feed the card labels)
   const isPicker = i => i.type === 'month' || i.type === 'date';
@@ -1418,6 +1460,7 @@ function setupLive() {
     : `<span>${tl('Pockets add up to more than the total', 'กองรวมเกินยอดรวม')}</span><b>฿${fm(-n.unsplit)}</b>`;
   $('nextBtn').disabled = n.unsplit !== 0;
   $('setupAssign').className = 'assign' + (n.left === 0 ? ' ok' : ''); $('setupAssign').innerHTML = assignHTML(n.left);
+  document.querySelectorAll('#s-setup [data-lline]').forEach(e => { const b = SU.bills[+e.dataset.lline]; if (b) e.textContent = loanLine({ amount: sat0(b.amount) }, sat0(b.ltotal), sat0(b.lbefore)); });
   document.querySelectorAll('#s-setup [data-pst]').forEach(e => { const p = SU.pots[+e.dataset.pst]; if (p) e.textContent = setupPotStatus(p); });
   $('setupPotSum').textContent = '฿' + fm0(n.potSum); $('setupBillSum').textContent = '฿' + fm0(n.billSum); $('setupCatSum').textContent = '฿' + fm0(n.catSum);
 }
@@ -1456,11 +1499,11 @@ $('startBtn') && ($('startBtn').onclick = () => {
   const accts = SU.accts.map(a => ({ k: a.k, n: suName(a), balS: sat(a.bal) }));
   const pots = SU.pots.map(p => ({ ...p, name: p.name.trim(), balS: sat(p.bal), monS: sat(p.monthly), goalS: sat(p.goal) })).filter(p => p.name || p.balS || p.monS || p.goalS);
   const cards = SU.cards.map(c => ({ ...c, n: c.n.trim(), close: +c.close, due: +c.due, billedS: sat(c.billed), unbilledS: sat(c.unbilled) }));
-  const bills = SU.bills.map(b => ({ ...b, n: b.n.trim(), amountS: sat(b.amount) })).filter(b => b.amountS);
+  const bills = SU.bills.map(b => ({ ...b, n: b.n.trim(), amountS: sat(b.amount), ltS: sat(b.ltotal), lbS: sat(b.lbefore) })).filter(b => b.amountS);
   const salary = sat(SU.salary), pday = +SU.payday, catB = SU.cats.map(c => sat(c.b));
   const e1 = step1Error(); if (e1) { SU.step = 1; renderSetup(); window.scrollTo(0, 0); return msg(e1); }
   if (!(Number.isInteger(pday) && pday >= 1 && pday <= 31)) return msg(tl('Cycle start must be a day from 1 to 31.', 'วันเริ่มรอบต้องอยู่ระหว่าง 1 ถึง 31'));
-  const all = [salary, ...accts.map(a => a.balS), ...pots.flatMap(p => [p.balS, p.monS, p.goalS]), ...cards.flatMap(c => [c.billedS, c.unbilledS]), ...bills.map(b => b.amountS), ...catB, sat(SU.make)];
+  const all = [salary, ...accts.map(a => a.balS), ...pots.flatMap(p => [p.balS, p.monS, p.goalS]), ...cards.flatMap(c => [c.billedS, c.unbilledS]), ...bills.map(b => b.amountS), ...bills.flatMap(b => [b.ltS, b.lbS]), ...catB, sat(SU.make)];
   if (all.some(v => Number.isNaN(v) || v < 0)) return msg(tl('Amounts must be numbers of 0 or more.', 'ยอดต้องเป็นตัวเลข 0 ขึ้นไป'));
   if (!(salary > 0)) return msg(tl('Enter your monthly salary.', 'ใส่เงินเดือน'));
   if (bills.some(b => !b.n)) return msg(tl('Every bill with an amount needs a name.', 'รายการที่มียอดต้องมีชื่อ'));
@@ -1472,7 +1515,7 @@ $('startBtn') && ($('startBtn').onclick = () => {
   ST.accounts = SU.accts.map(a => ({ k: a.k, n: a.n.trim() }));
   ST.cards = cards.map(c => ({ k: c.k, n: c.n, from: c.from, start: ST.today, sched: [{ since: '0000-01-01', close: c.close, due: c.due }] }));
   ST.salaryTo = SU.salaryTo; ST.spendTo = SU.spendTo; ST.salary = salary; ST.helpRate = 0;
-  ST.bills = bills.map((b, i) => ({ id: 'b' + i, n: b.n, amount: b.amountS, from: b.from, cat: catFor(b.n) }));
+  ST.bills = bills.map((b, i) => ({ id: 'b' + i, n: b.n, amount: b.amountS, from: b.from, cat: catFor(b.n), ...(b.ltS ? { loan: { total: b.ltS, paidBefore: b.lbS } } : {}) }));
   const o = {}, os = {};
   accts.forEach(a => { if (a.balS) o[a.k] = a.balS; });
   pots.forEach(p => { if (p.balS) o['pot:' + p.id] = p.balS; });

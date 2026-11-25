@@ -298,6 +298,23 @@
     });
   }
 
+  // A bill with a loan (total owed + what was paid before the app) counts down by each payment entry of that bill.
+  // endYm assumes one payment per cycle: the first is in this cycle if it is not paid yet, else the next one.
+  function loanStatus(state, bill, asOf) {
+    const L = bill && bill.loan;
+    if (!L || !(L.total > 0) || !(bill.amount > 0)) return null;
+    const cyc = cycleOf(asOf, state.payday);
+    let paid = L.paidBefore || 0, thisCycle = false;
+    for (const e of state.entries) {
+      if (e.type !== 'expense' || e.bill !== bill.id || e.pre || e.date > asOf) continue;
+      paid += e.amount;
+      if (e.date >= cyc.start) thisCycle = true;
+    }
+    const perPay = bill.amount, left = Math.max(0, L.total - paid), nLeft = Math.ceil(left / perPay);
+    const first = (thisCycle ? addDays(cyc.end, 1) : cyc.end).slice(0, 7);
+    return { total: L.total, paid, left, perPay, nPaid: Math.floor(paid / perPay), nTotal: Math.ceil(L.total / perPay), nLeft, endYm: nLeft ? addMonths(first, nLeft - 1) : null };
+  }
+
   // ---------- safe to spend ----------
   function safeToSpend(state, asOf) {
     const b = balances(state, { asOf });
@@ -445,7 +462,7 @@
     return { amount, fromCats, gap: amount - fromCats, from };
   }
 
-  root.LedgerCore = { sweep, cycleStatus, planFor, extraIncome, leftToAssign, changePayday, potPlan, addMonths, toSatang, baht, isDate, addDays, daysBetween, cycleOf, statementOf, cardStatementOf, changeCardDates, cardList, billStatus, cardOpening, setCardOpening, cardStart,
+  root.LedgerCore = { sweep, cycleStatus, planFor, extraIncome, leftToAssign, changePayday, potPlan, addMonths, toSatang, baht, isDate, addDays, daysBetween, cycleOf, statementOf, cardStatementOf, changeCardDates, cardList, billStatus, loanStatus, cardOpening, setCardOpening, cardStart,
     balances, validate, statements, spending, safeToSpend,
     personHistory, shareStatus, myShare, sharesTotal, isPot, isPerson, isAsset, isAcct, isCard, isLiquid, ASSETS, LIQUID };
   if (typeof module !== 'undefined') module.exports = root.LedgerCore;
