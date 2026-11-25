@@ -133,7 +133,8 @@
   // already include it: it moves nothing in accounts, cards or pockets. It still counts for friends' debts,
   // for monthly spending and for bills paid, because no starting balance covers those.
   function applyEntry(e, add0) {
-    const add = e.pre ? (k, v) => { if (isPerson(k)) add0(k, v); } : add0;
+    // off: paid outside the app after the start (e.g. a bill paid in the bank app before it was logged here) — moves nothing either
+    const add = e.pre || e.off ? (k, v) => { if (isPerson(k)) add0(k, v); } : add0;
     if (e.type === 'expense') {
       // CARD is a liability: spending raises what you owe. Everything else goes down.
       add(e.from, isCard(e.from) ? e.amount : -e.amount);
@@ -208,7 +209,7 @@
   function statements(state, asOf, card = 'CARD') {
     const map = new Map();
     for (const e of state.entries) {
-      if (e.type !== 'expense' || e.from !== card || e.pre) continue; // back-dated: already in the starting card balance
+      if (e.type !== 'expense' || e.from !== card || e.pre || e.off || (asOf && e.date > asOf)) continue; // back-dated: already in the starting card balance; future: not bought yet
       const st = cardStatementOf(state, card, e.date);
       if (!map.has(st.close)) map.set(st.close, { ...st, card, total: 0, paid: 0, entries: [] });
       const s = map.get(st.close); s.total += e.amount; s.entries.push(e.id);
@@ -221,7 +222,7 @@
     }
     const list = [...map.values()].sort((a, b) => a.close.localeCompare(b.close));
     // payments settle the oldest statement first
-    let pay = state.entries.filter(e => e.type === 'transfer' && e.to === card && !e.pre && (!asOf || e.date <= asOf))
+    let pay = state.entries.filter(e => e.type === 'transfer' && e.to === card && !e.pre && !e.off && (!asOf || e.date <= asOf))
       .reduce((s, e) => s + e.amount, 0);
     for (const s of list) { const p = Math.min(pay, s.total); s.paid = p; pay -= p; }
     for (const s of list) {
@@ -296,7 +297,6 @@
         const legacy = !e.bill && /^plan:.*:mom-bills/.test(e.tag || '') && e.cat === bl.cat;
         if (e.bill === bl.id || legacy) paid += e.amount;
       }
-      if (bl.paidOut === cyc.start) paid = Math.max(paid, bl.amount); // paid outside the app this cycle; no money moves here
       const left = Math.max(0, bl.amount - paid);
       return { ...bl, paid, left, reserve: isPot(bl.from) ? 0 : left }; // a pocket already holds its own money
     });
@@ -310,11 +310,10 @@
     const cyc = cycleOf(asOf, state.payday);
     let paid = L.paidBefore || 0, thisCycle = false;
     for (const e of state.entries) {
-      if (e.type !== 'expense' || e.bill !== bill.id || e.pre || e.date > asOf) continue;
-      paid += e.amount;
+      if (e.type !== 'expense' || e.bill !== bill.id || e.date > asOf) continue;
+      if (!e.pre) paid += e.amount; // a back-dated payment is already in paidBefore
       if (e.date >= cyc.start) thisCycle = true;
     }
-    if (bill.paidOut === cyc.start) thisCycle = true; // marked paid outside the app; its amount is already in paidBefore
     const perPay = bill.amount, left = Math.max(0, L.total - paid), nLeft = Math.ceil(left / perPay);
     const first = (thisCycle ? addDays(cyc.end, 1) : cyc.end).slice(0, 7);
     return { total: L.total, paid, left, perPay, nPaid: Math.floor(paid / perPay), nTotal: Math.ceil(L.total / perPay), nLeft, endYm: nLeft ? addMonths(first, nLeft - 1) : null };

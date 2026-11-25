@@ -14,7 +14,7 @@
 :root{ --hero:#141a26; --accent-ink:color-mix(in srgb,var(--marigold) 74%,#000); --accent-btn:color-mix(in srgb,var(--marigold) 84%,#000);
   --ground:#eef0f4; --surface:#ffffff; --raise:#f6f7fa; --ink:#141a26; --ink-2:#556074; --ink-3:#5b6476; --line:#dde1e9;
   --marigold:#c9760a; --marigold-ink:#ffffff; --marigold-tint:color-mix(in srgb,var(--marigold) 15%,var(--surface));
-  --debit:#b5402a; --credit:#23805a; --credit-tint:#e1f2ea; --debit-tint:#f9e6e1;
+  --debit:#b5402a; --credit:#1d7050; --credit-tint:#e1f2ea; --debit-tint:#f9e6e1;
   --shadow:0 1px 2px rgba(20,26,38,.06),0 8px 24px -12px rgba(20,26,38,.18);
   --f-ui:"Geist","Noto Sans Thai",system-ui,sans-serif; --f-num:"Geist Mono",ui-monospace,monospace;
 }
@@ -480,7 +480,7 @@ input,select,textarea,.note,.field,.sel,input[type=date]{font-size:16px}
 .seg button,.tabs2 button{min-height:44px}
 .act,.lang,.todo button,.xbtn{min-height:44px;min-width:44px}
 .todo button.ghost{background:transparent;border:1px solid var(--line);margin-right:6px;font-weight:500}
-.lnk{min-height:44px;padding:0 4px;display:inline-flex;align-items:center}
+.lnk{min-height:44px;min-width:44px;padding:0 4px;display:inline-flex;align-items:center;justify-content:center}
 .al .ck{width:30px;height:30px}
 .al .sub .field{width:110px}
 .ed .field,.prow .field{min-height:40px}
@@ -688,6 +688,7 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
 
     <div class="sec" id="catSec" hidden>
       <h2><span class="h" data-en="Categories" data-th="หมวด">Categories</span><span id="catLeft"></span></h2>
+      <p class="hint" id="catPartial" hidden style="margin:-4px 0 8px"></p>
       <div class="ledger hcats" id="hcats"></div>
     </div>
 

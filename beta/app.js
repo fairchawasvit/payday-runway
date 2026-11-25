@@ -96,7 +96,7 @@ function emptyState() {
       { id: 'travel', en: 'Travel', th: 'เที่ยว', b: 0 }, { id: 'personal', en: 'Personal', th: 'ส่วนตัว', b: 0 },
       { id: 'haircut', en: 'Haircut', th: 'ตัดผม', b: 0 }, { id: 'laundry', en: 'Laundry', th: 'ซักผ้า', b: 0 },
       { id: 'splurge', en: 'Splurge', th: 'ฟุ่มเฟือย', b: 0 }, { id: 'other', en: 'Other', th: 'อื่นๆ', b: 0 }],
-    incCats: [{ id: 'salary', en: 'Salary', th: 'เงินเดือน' }, { id: 'side', en: 'Helping Mom', th: 'ช่วยแม่' }, { id: 'other-in', en: 'Other income', th: 'รายรับอื่น' }],
+    incCats: [{ id: 'salary', en: 'Salary', th: 'เงินเดือน' }, { id: 'side', en: 'Side income', th: 'รายได้เสริม' }, { id: 'other-in', en: 'Other income', th: 'รายรับอื่น' }],
     people: [], places: [], helpRate: 0, cyclePlans: {}, cfFloor: 0, coverLater: null, sweptZero: [],
     ...defaultMoneySetup(),
     entries: [], lastBackup: null,
@@ -116,6 +116,13 @@ function migrate(st) {
   if (!Number.isInteger(st.helpRate)) st.helpRate = 0;
   if (!Number.isInteger(st.salary)) st.salary = 0;
   if (!Array.isArray(st.people)) st.people = [];
+  for (const b of st.bills || []) if (b.paidOut) {
+    const date = [b.paidOut, st.startDate || '', st.today || ''].filter(Boolean).sort()[1] || b.paidOut; // within the cycle, not before the start
+    const amount = b.paidOutAmt || b.amount;
+    if (b.loan && b.paidOutAmt) b.loan.paidBefore = Math.max(0, (b.loan.paidBefore || 0) - b.paidOutAmt); // the entry counts it now
+    if (amount > 0) st.entries.push({ id: st.nextId++, type: 'expense', date, amount, from: b.from, cat: b.cat, bill: b.id, off: true });
+    delete b.paidOut; delete b.paidOutAmt;
+  }
   if (st.schema < 2) {
     // v2: editable accounts and cards; the monthly items with Mom become ordinary monthly bills paid from SCB
     const d = defaultMoneySetup();
@@ -263,6 +270,12 @@ function home() {
         ? `<span>${esc(tl(`${acct(neg[0])} is −฿${fm0(-r.balances[neg[0]])}, which cannot be right`, `${acct(neg[0])} ติดลบ ฿${fm0(-r.balances[neg[0]])} ซึ่งเป็นไปไม่ได้`) + (parts ? ' · ' + tl('also ', 'และหัก ') + parts : '') + tl(' · see To do', ' · ดูในต้องจัดการ'))}</span>`
         : `<span>${esc(tl(`Money in accounts ฿${fm0(r.liquid)} is less than ${parts}`, `เงินในบัญชี ฿${fm0(r.liquid)} น้อยกว่า ${parts}`))}</span>`;
     } }
+  // payday, salary not recorded yet: the new cycle's bills are set aside but the money for them is not in, so say that instead of "short"
+  const waitPay = (() => { const p = planPay(); return p <= ST.today && p >= cyc.start && !salaryIn(p) && !ST.entries.some(e => e.type === 'income' && e.cat === 'salary' && e.date >= cyc.start && e.date <= ST.today); })();
+  if (r.safe < 0 && waitPay) {
+    $('perDay').innerHTML = `<b>${tl('Waiting for salary', 'รอเงินเดือนเข้า')}</b>`;
+    $('heroWhy').innerHTML = `<span>${esc(tl(`This cycle's salary ฿${fm0(ST.salary || 0)} is not recorded yet. When it arrives, split it from To do and this turns positive.`, `ยังไม่ได้จดเงินเดือนรอบนี้ ฿${fm0(ST.salary || 0)} พอเงินเข้า กดแบ่งเงินในต้องจัดการ ตัวเลขจะกลับเป็นบวก`))}</span>`;
+  } else
   $('perDay').innerHTML = r.safe < 0 ? `<b style="color:#ff9b85">${r.safe + r.reserved >= 0 ? tl('Bills set aside are more than you have', 'บิลที่กันไว้มากกว่าเงินที่มี') : tl('Short this cycle', 'รอบนี้เงินไม่พอ')}</b>` : tl(`<span class="num">฿${fm0(Math.max(0, r.perDay))}</span> a day`, `วันละ <span class="num">฿${fm0(Math.max(0, r.perDay))}</span>`);
   // how far through the cycle we are
   const span = C.daysBetween(cyc.start, cyc.end) + 1, gone = C.daysBetween(cyc.start, ST.today) + 1;
@@ -304,8 +317,8 @@ function home() {
     sub: x.reserve ? tl(`฿${fm(x.left)} set aside`, `กันเงินไว้แล้ว ฿${fm(x.left)}`) : tl(`฿${fm(x.left)} from its pocket`, `฿${fm(x.left)} จ่ายจากกอง`), btn: tl('Record', 'จด'),
     fn: () => { F = { ...blankForm(), type: 'expense', bill: x.id, cat: x.cat, amount: (x.left / 100).toFixed(2), ...(C.isPot(x.from) ? { from: 'POT', pot: x.from.slice(4) } : { from: x.from }) }; go('add'); },
     btn2: tl('Paid already', 'จ่ายแล้ว'),
-    fn2: () => { const bl = ST.bills.find(b => b.id === x.id); if (!bl) return; bl.paidOut = r.cycle.start;
-      if (bl.loan) { bl.paidOutAmt = x.left; bl.loan.paidBefore = (bl.loan.paidBefore || 0) + x.left; } persist(); toast(tl('Marked paid. No money moved.', 'ทำเครื่องหมายจ่ายแล้ว ไม่หักเงินในบัญชี')); home(); } }));
+    fn2: () => attempt({ type: 'expense', date: ST.today, amount: x.left, from: x.from, cat: x.cat, bill: x.id, off: true },
+      { msg: tl(`${billName(x)} marked paid. No money moved. Undo in History.`, `${billName(x)} จ่ายแล้ว ไม่หักเงินในบัญชี ยกเลิกได้ในประวัติ`) }) && home() }));
   liveAccts().filter(k => (b[k] || 0) < 0).forEach(k => T.unshift({ id: 'neg', cls: 'danger', ico: 'i-bell',
     t: tl(`${acct(k)} is −฿${fm(-b[k])}: the app no longer matches your bank`, `${acct(k)} ติดลบ −฿${fm(-b[k])} · ตัวเลขในแอปไม่ตรงกับธนาคาร`),
     sub: tl('A starting balance is off, or an income/transfer is missing', 'ยอดตอนเริ่มใช้ไม่ตรง หรือลืมจดเงินเข้า/การโอน'), btn: tl('Fix', 'แก้ยอด'),
@@ -416,7 +429,10 @@ function homeCats(cs) {
   $('catSec').hidden = !rows.length;
   if (!rows.length) return;
   const days = C.daysBetween(ST.today, cs.cycle.end) + 1;
-  $('catLeft').textContent = tl(`${cs.left < 0 ? "−" : ""}฿${fm0(Math.abs(cs.left))} left this cycle · ${days} days`, `รอบนี้เหลือ ${cs.left < 0 ? "−" : ""}฿${fm0(Math.abs(cs.left))} · อีก ${days} วัน`);
+  $('catLeft').textContent = tl(`Budgets left ${cs.left < 0 ? "−" : ""}฿${fm0(Math.abs(cs.left))} · ${days} days`, `งบหมวดเหลือ ${cs.left < 0 ? "−" : ""}฿${fm0(Math.abs(cs.left))} · อีก ${days} วัน`);
+  // started part-way through this cycle: spending before the start date is only here if it was back-dated
+  { const part = !!ST.startDate && ST.startDate > cs.cycle.start && ST.startDate <= cs.cycle.end, el = $('catPartial');
+    el.hidden = !part; if (part) el.textContent = tl(`You started on ${dl(ST.startDate)}. Spending from ${dl(cs.cycle.start)} to before that is not counted unless you add it with its real date (it will not change your balances).`, `เริ่มใช้แอปวันที่ ${dl(ST.startDate)} รายจ่ายตั้งแต่ ${dl(cs.cycle.start)} ถึงก่อนวันนั้นยังไม่นับ จนกว่าจะจดย้อนหลังตามวันจริง (ไม่หักยอดในบัญชี)`); }
   const later = ST.coverLater && ST.coverLater.cycleStart === cs.cycle.start ? ST.coverLater.ids : [];
   const covered = id => ST.entries.reduce((s, e) => s + (e.tag === `cover:${cs.cycle.start}:${id}` ? e.amount : 0), 0);
   $('hcats').innerHTML = rows.map(c => {
@@ -546,7 +562,7 @@ function rowHTML(e) {
   const st = e.type === 'expense' && e.shares ? C.shareStatus(ST, e.id) : [], wait = st.some(s => s.left > 0);
   const tags = [e.type === 'expense' ? acct(e.from) : e.type === 'income' ? acct(e.to) : '', st.length ? st.map(s => s.p).join(', ') : ''].filter(Boolean);
   return `<div class="hwrap"><button class="crow" data-id="${e.id}" aria-expanded="${openId === e.id}"><span class="dt">${String(+e.date.slice(8)).padStart(2, '0')} ${MN()[+e.date.slice(5, 7) - 1]}</span>
-    <span class="nm">${esc(label(e))} <em>${e.type === 'expense' && label(e) !== cn(e.cat) ? '· ' + esc(cn(e.cat)) + ' ' : ''}${tags.length ? '· ' + esc(tags.join(' · ')) : ''}</em>${wait ? '<span class="dotw" title="waiting refund"></span>' : ''}${e.pre ? `<span class="pill">${tl('not deducted', 'ไม่หักยอด')}</span>` : ''}</span>${e.pre ? money(e).replace('class="num ', 'class="num prev ') : money(e)}</button>
+    <span class="nm">${esc(label(e))} <em>${e.type === 'expense' && label(e) !== cn(e.cat) ? '· ' + esc(cn(e.cat)) + ' ' : ''}${tags.length ? '· ' + esc(tags.join(' · ')) : ''}</em>${wait ? '<span class="dotw" title="waiting refund"></span>' : ''}${e.pre || e.off ? `<span class="pill">${e.off ? tl('paid outside', 'จ่ายนอกแอป') : tl('not deducted', 'ไม่หักยอด')}</span>` : ''}</span>${e.pre || e.off ? money(e).replace('class="num ', 'class="num prev ') : money(e)}</button>
     ${openId === e.id ? detailHTML(e) : ''}</div>`;
 }
 // the payment that finished paying this statement (payments settle the oldest statement first)
@@ -560,7 +576,8 @@ function detailHTML(e) {
   const ev = [], D = dl;
   if (e.type === 'expense') {
     ev.push({ at: e.date, ok: 1, k: tl('Paid', 'จ่าย'), v: `${D(e.date)} · ${esc(acct(e.from))} ฿${fm(e.amount)}` });
-    if (C.isCard(e.from)) {
+    if (e.pre || e.off) ev.push({ at: e.date, ok: 1, k: tl('Balances', 'ยอดในบัญชี/บัตร'), v: e.off ? tl('Paid outside the app, not deducted here', 'จ่ายนอกแอป ไม่หักยอดในแอป') : tl('Already in your starting balances, not deducted again', 'อยู่ในยอดตอนเริ่มใช้แล้ว ไม่หักซ้ำ') });
+    else if (C.isCard(e.from)) {
       const s = C.cardStatementOf(ST, e.from, e.date), closed = ST.today > s.close, p = stmtPayment(e.from, s.close);
       const src = acct(p ? p.from : cardFrom(e.from));
       ev.push({ at: s.close, ok: closed, wait: !closed, k: tl('Card bill', 'บิลบัตร'), v: `${tl('closes', 'สรุปยอด')} ${D(s.close)}` });
@@ -599,7 +616,7 @@ function startEdit(id) {
   F = { ...blankForm(), type: e.type, amount: (e.amount / 100).toFixed(2), date: e.date, note: e.note || '', editingId: id };
   if (e.type === 'expense') { Object.assign(F, { from: C.isPot(e.from) ? 'POT' : e.from, pot: C.isPot(e.from) ? e.from.slice(4) : '', cat: e.cat, place: e.place || '' });
     F.split = (e.shares || []).map(s => s.p); F.custom = Object.fromEntries((e.shares || []).map(s => [s.p, (s.amount / 100).toFixed(2)])); F.bill = e.bill || ''; }
-    F.pre = !!e.pre;
+    F.pre = !!e.pre; F.off = !!e.off;
   if (e.type === 'income') Object.assign(F, { to: e.to, incCat: e.cat });
   if (e.type === 'transfer') Object.assign(F, { tFrom: e.from, tTo: e.to });
   go('add');
@@ -611,7 +628,7 @@ function sharesFor(total) {
 }
 // back-dated: before the start day it always is; on the start day the user says so
 const isPre = () => !!ST.startDate && C.isDate(F.date) && (F.date < ST.startDate || (F.date === ST.startDate && F.pre));
-function buildEntry() { const e = buildEntry0(); if (isPre()) e.pre = true; return e; }
+function buildEntry() { const e = buildEntry0(); if (isPre()) e.pre = true; else if (F.off && e.type === 'expense') e.off = true; return e; } // a paid-outside entry stays one when edited
 function buildEntry0() {
   const amount = C.toSatang(F.amount);
   if (F.type === 'expense') {
@@ -705,7 +722,7 @@ function renderAdd() {
   const rows = [], r = (k, val) => rows.push(`<div class="ln"><span class="k">${k}</span><b>${val}</b></div>`);
   if (isX && e.amount > 0) {
     const c = cyc(e.date); r(tl('Budget cycle', 'รอบงบ'), C.isPot(e.from) ? tl('Not counted (pocket)', 'ไม่นับ (จ่ายจากกอง)') : `${dl(c.start)} – ${dl(c.end)}`);
-    if (e.pre) {}
+    if (e.pre || e.off) {}
     else if (C.isCard(e.from)) { const s = C.cardStatementOf(ST, e.from, e.date), src = esc(acct(cardFrom(e.from)));
       r(tl('Card bill', 'บิลบัตร'), `${tl('closes', 'สรุปยอด')} ${dly(s.close)}`); r(tl(`Leaves ${src}`, `เงินออกจาก ${src}`), `${tl('by', 'ภายใน')} ${dly(s.due)}`); }
     else if (C.isPerson(e.from)) r(tl('Owed', 'ค้างจ่าย'), esc(person(e.from.slice(7))));
@@ -713,7 +730,7 @@ function renderAdd() {
     if (e.bill) { const x = bills.find(y => y.id === e.bill); if (x) r(tl('Monthly bill', 'รายจ่ายประจำ'), tl(`${esc(billName(x))} · no longer set aside`, `${esc(billName(x))} · เลิกกันเงินส่วนนี้`)); }
     if (e.shares) r(tl('Friends owe you', 'เพื่อนต้องคืน'), '฿' + fm(C.sharesTotal(e)));
   }
-  if (e.pre && e.amount > 0) r(tl('Balances', 'ยอดในบัญชี/บัตร'), tl('unchanged (not deducted)', 'ไม่เปลี่ยน (ไม่หักยอด)'));
+  if ((e.pre || e.off) && e.amount > 0) r(tl('Balances', 'ยอดในบัญชี/บัตร'), tl('unchanged (not deducted)', 'ไม่เปลี่ยน (ไม่หักยอด)'));
   if (isT && e.amount > 0) r(tl('Moves', 'โอน'), `${esc(acct(e.from))} → ${esc(acct(e.to))}`);
   if (isI && e.amount > 0) r(tl('Goes to', 'เข้า'), esc(acct(e.to)));
   $('where').innerHTML = rows.length ? `<h3><svg class="i" style="width:16px;height:16px"><use href="#i-route"/></svg>${tl('Where this goes', 'รายการนี้ไปที่ไหน')}</h3>${rows.join('')}` : '';
@@ -1210,6 +1227,7 @@ function renderMoneySettings(bal) {
     const n = $('an' + i); if (n) n.onchange = ev => { const v = ev.target.value.trim(); if (!v) { ev.target.value = acct(a.k); return; } a.n = v; saved(tl('Renamed. Past entries follow.', 'เปลี่ยนชื่อแล้ว รายการเก่าเปลี่ยนตาม')); };
     const iv = $('ai' + i); if (iv) iv.onchange = ev => {
       if (ev.target.checked && (a.k === ST.salaryTo || a.k === ST.spendTo)) { ev.target.checked = false; return toast(tl('Salary or spending goes here', 'บัญชีนี้รับเงินเดือนหรือใช้จ่ายอยู่')); }
+      if (ev.target.checked && ((ST.bills || []).some(b => b.from === a.k) || ST.cards.some(c => !c.arch && c.from === a.k))) { ev.target.checked = false; return toast(tl('A bill or card is paid from here. Change that first.', 'มีบิลหรือบัตรที่จ่ายจากบัญชีนี้ เปลี่ยนก่อน')); }
       a.inv = ev.target.checked || undefined; saved(a.inv ? tl('Investment account. Not counted as money to spend.', 'บัญชีลงทุน ไม่นับเป็นเงินใช้ได้') : tl('Counted as money to spend', 'นับเป็นเงินใช้ได้'));
     };
     $('aa' + i).onclick = () => {
@@ -1260,15 +1278,10 @@ function renderMoneySettings(bal) {
   const loanVal = v => (v ? String(v / 100) : '');
   $('billEd').innerHTML = ST.bills.map((b, i) => `<div class="ed" style="flex-wrap:wrap;row-gap:6px"><input class="name" id="bn${i}" value="${esc(billName(b))}" aria-label="${tl('Bill name', 'ชื่อรายการ')}">
     <input class="field" id="ba${i}" type="number" min="0" step="0.01" value="${b.amount / 100}" aria-label="${tl('Amount', 'ยอด')}"><button class="act" id="bx${i}">${tl('Remove', 'ลบ')}</button>
-    ${b.paidOut === C.cycleOf(ST.today, ST.payday).start ? `<span class="lnsub" style="flex-basis:100%">${tl('Marked paid outside the app this cycle', 'ทำเครื่องหมายจ่ายแล้วนอกแอป รอบนี้')} <button class="act" id="bu${i}">${tl('Undo', 'ยกเลิก')}</button></span>` : ''}
     <span class="lnsub" style="flex-basis:100%">${tl('Paid from', 'จ่ายจาก')} <select class="sel" id="bf${i}">${opts(billSources(b.from), b.from)}</select></span>
     ${loanHTML(i, loanOpen(b), `id="bl${i}"`, `<input class="field" id="bt${i}" type="number" inputmode="decimal" min="0" step="0.01" value="${loanVal(b.loan && b.loan.total)}">`, `<input class="field" id="bp${i}" type="number" inputmode="decimal" min="0" step="0.01" value="${loanVal(b.loan && b.loan.paidBefore)}">`)}</div>`).join('') +
     `<div class="addrow"><input id="newBill" placeholder="${tl('New bill, e.g. Rent', 'รายการใหม่ เช่น ค่าหอ')}" aria-label="${tl('New bill', 'รายการใหม่')}"><button id="addBill">${tl('Add', 'เพิ่ม')}</button></div>`;
   ST.bills.forEach((b, i) => {
-    const u = $('bu' + i); if (u) u.onclick = () => {
-      if (b.loan && b.paidOutAmt) b.loan.paidBefore = Math.max(0, (b.loan.paidBefore || 0) - b.paidOutAmt);
-      delete b.paidOut; delete b.paidOutAmt; saved(tl('Undone. The bill is unpaid again.', 'ยกเลิกแล้ว บิลกลับเป็นยังไม่จ่าย'));
-    };
     $('bn' + i).onchange = ev => { const v = ev.target.value.trim(); if (!v) { ev.target.value = billName(b); return; } b.n = v; saved(); };
     $('ba' + i).onchange = ev => { const v = C.toSatang(ev.target.value); if (!(v > 0)) { toast(tl('Enter an amount above 0', 'ใส่ยอดมากกว่า 0')); renderSet(); return; } b.amount = v; saved(); };
     $('bf' + i).onchange = ev => { b.from = ev.target.value; saved(); };
@@ -1537,6 +1550,9 @@ $('startBtn') && ($('startBtn').onclick = () => {
   if (bills.some(b => !b.n)) return msg(tl('Every bill with an amount needs a name.', 'รายการที่มียอดต้องมีชื่อ'));
   if (!pots.some(p => p.id === 'cashflow')) pots.unshift({ id: 'cashflow', name: 'Cash flow', balS: 0, monS: 0 });
   const potKeys = pots.map(p => 'pot:' + p.id), acctKeys = accts.map(a => a.k), cardKeys = cards.map(c => c.k);
+  const invKeys = SU.accts.filter(a => a.inv).map(a => a.k);
+  if (invKeys.includes(SU.salaryTo) || invKeys.includes(SU.spendTo)) return msg(tl('Salary or spending cannot go to an investment account. Untick "Investment" or pick another account.', 'บัญชีลงทุนรับเงินเดือนหรือใช้จ่ายไม่ได้ เอาติ๊ก "บัญชีลงทุน" ออก หรือเลือกบัญชีอื่น'));
+  if (bills.some(b => invKeys.includes(b.from)) || cards.some(c => invKeys.includes(c.from))) return msg(tl('A bill or card is paid from an investment account. Pick another account for it.', 'มีบิลหรือบัตรที่จ่ายจากบัญชีลงทุน เลือกบัญชีอื่นให้'));
   if (bills.some(b => ![...acctKeys, ...cardKeys, ...potKeys].includes(b.from))) return msg(tl('A bill is paid from something that was removed. Pick again.', 'มีรายการที่เลือกที่จ่ายซึ่งถูกลบไปแล้ว เลือกใหม่'));
   ST.pots = pots.map(p => ({ id: p.id || 'p' + Date.now() + Math.random().toString(36).slice(2, 6), n: p.name, th: p.name, ...(p.monS ? { monthly: p.monS } : {}), ...(p.goalS ? { goal: p.goalS } : {}), ...(p.by ? { by: p.by } : {}), ...(p.repeat ? { repeat: true } : {}) }));
   // a built-in account left unnamed keeps following the language (Cash / เงินสด)
@@ -1561,7 +1577,7 @@ $('startBtn') && ($('startBtn').onclick = () => {
   SU.cats.forEach((c, i) => { const nm = c.name.trim(), x = ST.cats.find(k => k.id === c.id);
     if (x) { x.en = nm; x.th = nm; x.b = catB[i]; delete x.arch; } else ST.cats.push({ id: c.id, en: nm, th: nm, b: catB[i] }); });
   ST.payday = pday === 28 ? [] : [{ since: '0000-01-01', day: pday }];
-  { const cs = C.cycleOf(ST.today, ST.payday).start; bills.forEach((b, i) => { if (b.paid) ST.bills[i].paidOut = cs; }); } // paid before the app started: no money moves
+  bills.forEach((b, i) => { if (b.paid) ST.entries.push({ id: ST.nextId++, type: 'expense', date: ST.today, amount: b.amountS, from: b.from, cat: ST.bills[i].cat, bill: ST.bills[i].id, off: true }); }); // paid before the app started: no money moves
   Object.assign(ST, { opening: o, openingStatements: os, setupDone: true, startDate: ST.today, sample: false });
   SU = null; dropDraft(); persist(); toast(tl('All set. Record your first entry with +', 'พร้อมแล้ว กด + เพื่อจดรายการแรก')); go('home'); let seen = false; try { seen = !!localStorage.getItem('toured'); } catch (e) {} if (!seen) showTour(0);
 });
