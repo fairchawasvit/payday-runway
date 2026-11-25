@@ -55,22 +55,28 @@
     const S = sched && sched.length ? sched : DEFAULT_PAYDAY;
     const rule = ruleOn(S, date);
     const next = S.find(x => x.since > date);
+    if (next && next.prevStart && date >= next.prevStart) return { start: next.prevStart, end: addDays(next.since, -1) }; // the cycle an endOn change cut short
     // an old-day payday less than 14 days before the first new payday starts no cycle of its own: it joins the one before
-    const tooClose = d => next && daysBetween(d, next.since) < 14;
+    const tooClose = d => next && !next.prevStart && daysBetween(d, next.since) < 14;
     let start = latestPay(rule.day, date);
     while (tooClose(start) && start > rule.since) start = latestPay(rule.day, addDays(start, -1));
+    if (rule.prevStart && start < rule.since) start = rule.since; // a rule from endOn never reaches back before itself
     let end = addDays(nextPayAfter(rule.day, start), -1);
     if (tooClose(addDays(end, 1))) end = addDays(next.since, -1); // the last cycle on the old day runs up to the new payday
+    if (next && end >= next.since) end = addDays(next.since, -1); // a cycle never runs into the new rule
     return { start, end };
   }
   // Move payday to `day` from a future cycle: the cycle open now is never cut. The first new payday is at least
   // 14 days after the next cycle starts, so the one in-between cycle runs about 2 to 6 weeks.
-  function changePayday(state, today, day) {
+  // With `endOn` (>= today) the open cycle is stretched or shortened to end there, and the new day starts the day after.
+  function changePayday(state, today, day, { endOn, startFrom } = {}) {
+    if (endOn !== undefined && !(isDate(endOn) && endOn >= today)) throw new Error('endOn must be a date on or after today');
     const S = (state.payday && state.payday.length ? state.payday : DEFAULT_PAYDAY).filter(x => x.since <= today);
+    if (endOn && startFrom !== undefined && !(isDate(startFrom) && startFrom <= today)) throw new Error('startFrom must be a date on or before today');
     const cur = cycleOf(today, S), nextStart = addDays(cur.end, 1);
     if (ruleOn(S, today).day === day) { state.payday = S; return null; } // back to the day in force: just drop a pending change
-    const since = nextPayAfter(day, addDays(nextStart, 13));
-    state.payday = [...S, { since, day }];
+    const since = endOn ? addDays(endOn, 1) : nextPayAfter(day, addDays(nextStart, 13));
+    state.payday = [...S, endOn ? { since, day, prevStart: startFrom || cur.start } : { since, day }];
     return since;
   }
   // statement a purchase on `date` belongs to; days are 1-28 so every month has them
@@ -371,7 +377,75 @@
     return { goal, by, left, n, need, per: base, amount, finish, status, late };
   }
 
-  root.LedgerCore = { changePayday, potPlan, addMonths, toSatang, baht, isDate, addDays, daysBetween, cycleOf, statementOf, cardStatementOf, changeCardDates, cardList, billStatus, cardOpening, setCardOpening, cardStart,
+  // ---------- per-cycle plan ----------
+  // Defaults live in state (salary, cats[].b, pots[].monthly); state.cyclePlans[cycleStart] stores only overrides.
+  function planFor(state, cycleStart) {
+    const ov = (state.cyclePlans || {})[cycleStart] || {}, ovc = ov.cats || {};
+    const cats = {}, pots = {};
+    for (const c of state.cats || []) if (!c.arch) cats[c.id] = ovc[c.id] != null ? ovc[c.id] : (c.b || 0);
+    // same amount the transfer checklist uses: monthly, else legacy fixed, else what the goal needs
+    const bal = (state.pots || []).some(p => !p.monthly && (p.fixed || p.goal)) ? balances(state, { asOf: addDays(cycleStart, -1) }) : {};
+    for (const p of state.pots || []) if (!p.arch && p.id !== 'cashflow') pots[p.id] = p.monthly || (p.fixed || p.goal ? potPlan(p, bal['pot:' + p.id] || 0, cycleStart).amount : 0);
+    const bills = (state.bills || []).reduce((s, b) => s + (isPot(b.from) ? 0 : b.amount), 0);
+    return { salary: ov.salary != null ? ov.salary : (state.salary || 0), cats, pots, bills };
+  }
+  const extraIncome = (state, cycle) => state.entries.reduce((s, e) =>
+    s + (e.type === 'income' && !e.pre && e.cat !== 'salary' && e.date >= cycle.start && e.date <= cycle.end ? e.amount : 0), 0);
+  function leftToAssign(state, cycleStart) {
+    const p = planFor(state, cycleStart), sum = o => Object.values(o).reduce((a, b) => a + b, 0);
+    return p.salary + extraIncome(state, cycleOf(cycleStart, state.payday)) - sum(p.pots) - p.bills - sum(p.cats);
+  }
+
+  // ---------- where the cycle stands (Home) ----------
+  // Bill payments (entries with .bill) are reserved whole by the plan, so category spending leaves them out.
+  function catSpend(state, from, to) {
+    const by = {};
+    for (const e of state.entries) {
+      if (e.type !== 'expense' || e.pre || e.bill || /^plan:.*:mom-bills/.test(e.tag || '') || isPot(e.from) || e.date < from || e.date > to) continue;
+      by[e.cat] = (by[e.cat] || 0) + myShare(e);
+    }
+    return by;
+  }
+  function cycleStatus(state, asOf) {
+    const cycle = cycleOf(asOf, state.payday), sum = o => Object.values(o).reduce((a, b) => a + b, 0);
+    const plan = planFor(state, cycle.start), by = catSpend(state, cycle.start, cycle.end);
+    const ids = Object.keys(plan.cats);
+    for (const id of Object.keys(by)) if (!ids.includes(id)) ids.push(id);
+    const cats = ids.map(id => { const budget = plan.cats[id] || 0, spent = by[id] || 0; return { id, budget, spent, left: budget - spent, over: spent > budget }; });
+    const left = plan.salary + extraIncome(state, cycle) - sum(plan.pots) - plan.bills - sum(by);
+    const cashflow = balances(state, { asOf })['pot:cashflow'] || 0;
+    const drewCashflow = state.entries.reduce((a, e) => a + (e.type === 'transfer' && !e.pre && e.from === 'pot:cashflow' && e.date >= cycle.start && e.date <= asOf ? e.amount : 0), 0);
+    const belowFloor = (state.cfFloor || 0) > 0 && cashflow < state.cfFloor;
+    const overStreak = {}, alive = new Set(ids);
+    let start = cycle.start;
+    for (let i = 0; i < 12 && alive.size; i++) {
+      const prev = cycleOf(addDays(start, -1), state.payday), pp = planFor(state, prev.start), pb = catSpend(state, prev.start, prev.end);
+      for (const id of [...alive]) {
+        if ((pb[id] || 0) > (pp.cats[id] || 0)) overStreak[id] = (overStreak[id] || 0) + 1; else alive.delete(id);
+      }
+      start = prev.start;
+    }
+    return { cycle, left, cats, drewCashflow, cashflow, belowFloor, overStreak };
+  }
+
+  // end-of-cycle sweep: what is really free in the spending account once its cards are paid, vs what the categories still think is left
+  function sweep(state, asOf) {
+    const from = state.spendTo, bal = balances(state, { asOf }), cards = state.cards || [];
+    let owed = 0;
+    for (const k of cardList(state)) {
+      const card = cards.find(c => c.k === k), payer = (card && card.from) || from;
+      if (payer === from) owed += Math.max(0, bal[k] || 0);
+    }
+    // keep back money for unpaid bills paid from here, and salary that already landed for the next cycle (it lands a few days before the cycle ends)
+    const cycle = cycleOf(asOf, state.payday), early = addDays(cycle.end, -4);
+    const reserved = billStatus(state, asOf).reduce((a, b) => a + (b.from === from ? b.reserve : 0), 0);
+    const nextSalary = state.entries.reduce((a, e) => a + (e.type === 'income' && e.cat === 'salary' && e.to === from && e.date >= early && e.date <= asOf ? e.amount : 0), 0);
+    const amount = Math.max(0, (bal[from] || 0) - owed - reserved - nextSalary);
+    const fromCats = cycleStatus(state, asOf).cats.reduce((a, c) => a + Math.max(0, c.left), 0);
+    return { amount, fromCats, gap: amount - fromCats, from };
+  }
+
+  root.LedgerCore = { sweep, cycleStatus, planFor, extraIncome, leftToAssign, changePayday, potPlan, addMonths, toSatang, baht, isDate, addDays, daysBetween, cycleOf, statementOf, cardStatementOf, changeCardDates, cardList, billStatus, cardOpening, setCardOpening, cardStart,
     balances, validate, statements, spending, safeToSpend,
     personHistory, shareStatus, myShare, sharesTotal, isPot, isPerson, isAsset, isAcct, isCard, isLiquid, ASSETS, LIQUID };
   if (typeof module !== 'undefined') module.exports = root.LedgerCore;

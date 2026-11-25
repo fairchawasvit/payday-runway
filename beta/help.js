@@ -75,11 +75,11 @@ window.HELP = {
     th: ['เงินเดือนเข้าและแบ่งเงิน', [
       'พอเริ่มรอบใหม่ กล่องต้องจัดการจะถามว่าเงินเดือนเข้าหรือยัง ขึ้น "แบ่งเงิน" กดแล้วติ๊กทีละขั้น: เงินเดือนเข้า → โอนเข้าแต่ละกอง → ที่เหลือไปบัญชีใช้จ่าย การติ๊กคือการบันทึกจริง',
       'เงินเดือนเลท: แอปยังไม่นับเงินเดือนจนกว่าจะติ๊ก ติ๊กวันไหนก็บันทึกวันนั้น ทำได้ภายใน 10 วันแรกของรอบ',
-      'เปลี่ยนวันเริ่มรอบ: ตั้งค่า → เงินเดือน → รอบเริ่มวันที่ รอบที่ใช้อยู่ไม่ถูกตัด มีรอบคั่นครั้งเดียว']],
+      'เปลี่ยนวันเริ่มรอบ: ตั้งค่า → เงินเดือน → รอบเริ่มวันที่ แอปจะถามว่ารอบปัจจุบันเริ่มและจบวันไหน จึงยืดหรือหดรอบได้']],
     en: ['Payday and splitting salary', [
       'Near payday, To do shows "Split". Tick each step: salary in → each pocket → the rest to spending. Ticking records it.',
       'Late salary: it is not counted until you tick it, and it is recorded on the day you tick. Works for the first 10 days of a cycle.',
-      'Change payday in Settings → Salary. The current cycle stays; there is one in-between cycle.']],
+      'Change payday in Settings → Salary. Changing the cycle day asks when the current cycle starts and ends, so it can be stretched or shortened.']],
   },
   friends: {
     th: ['เพื่อนค้างเงิน', [

@@ -80,12 +80,12 @@ function sampleState() {
     opening: { SCB: B(4200), CARD: B(2800), 'pot:ins': B(2500), 'pot:car': B(3400), 'pot:goods': B(450), 'pot:emerg': B(25000), 'pot:cashflow': B(1800), 'pot:invest': B(2000) },
     openingStatements: { '2026-09-17': B(2800) },
     pots, cats, people: ['Alex', 'Ben', 'Chai', 'Dao'],
-    ...defaultMoneySetup(), schema: SCHEMA, bills: [{ id: 'b0', n: '', cat: 'rent', amount: B(1200), from: 'SCB' }, { id: 'b1', n: '', cat: 'net', amount: B(500), from: 'SCB' }, { id: 'b2', n: '', cat: 'car', amount: B(4900), from: 'SCB' }], helpRate: B(150),
+    ...defaultMoneySetup(), schema: SCHEMA, bills: [{ id: 'b0', n: '', cat: 'rent', amount: B(1200), from: 'SCB' }, { id: 'b1', n: '', cat: 'net', amount: B(500), from: 'SCB' }, { id: 'b2', n: '', cat: 'car', amount: B(4900), from: 'SCB' }], helpRate: B(150), cyclePlans: {}, cfFloor: 0, coverLater: null, sweptZero: [],
     places: [{ n: '7-Eleven', c: 'food', s: 'CARD' }, { n: 'Lotus', c: 'food', s: 'CARD' }, { n: 'Shell', c: 'fuel', s: 'CARD' }, { n: 'Café Amazon', c: 'food', s: 'SCB' }],
     entries: E,
   };
 }
-const SCHEMA = 2;
+const SCHEMA = 3;
 const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 // A fresh install carries no personal data: the owner types it in during setup.
 function emptyState() {
@@ -98,7 +98,7 @@ function emptyState() {
       { id: 'power', en: 'Power', th: 'ค่าไฟ', b: 0 }, { id: 'haircut', en: 'Haircut', th: 'ตัดผม', b: 0 }, { id: 'laundry', en: 'Laundry', th: 'ซักผ้า', b: 0 },
       { id: 'splurge', en: 'Splurge', th: 'ฟุ่มเฟือย', b: 0 }, { id: 'other', en: 'Other', th: 'อื่นๆ', b: 0 }],
     incCats: [{ id: 'salary', en: 'Salary', th: 'เงินเดือน' }, { id: 'side', en: 'Helping Mom', th: 'ช่วยแม่' }, { id: 'other-in', en: 'Other income', th: 'รายรับอื่น' }],
-    people: [], places: [], helpRate: 0,
+    people: [], places: [], helpRate: 0, cyclePlans: {}, cfFloor: 0, coverLater: null, sweptZero: [],
     ...defaultMoneySetup(),
     entries: [], lastBackup: null,
   };
@@ -124,6 +124,14 @@ function migrate(st) {
     if (!Array.isArray(st.bills)) st.bills = (st.momBills || []).map((b, i) => ({ id: 'b' + i, n: '', amount: b.amount, from: 'SCB', cat: b.cat }));
     delete st.momBills;
     st.schema = 2;
+  }
+  if (st.schema < 3) {
+    // v3: cycle plans, cash-flow floor, cover-later and swept-zero marks; nothing else is rewritten
+    if (!st.cyclePlans || typeof st.cyclePlans !== 'object') st.cyclePlans = {};
+    if (!Number.isInteger(st.cfFloor)) st.cfFloor = 0;
+    if (st.coverLater === undefined) st.coverLater = null;
+    if (!Array.isArray(st.sweptZero)) st.sweptZero = [];
+    st.schema = 3;
   }
   return st;
 }
@@ -258,8 +266,17 @@ function home() {
     (r.iOwe ? row(tl('You owe', 'ค้างจ่าย'), '−' + fm(r.iOwe), 'neg', Object.entries(r.people).filter(([, v]) => v < 0).map(([k, v]) => `${esc(person(k))} ${fm0(-v)}`).join(' · ')) : '') +
     `<div class="ln sum"><span class="k">${tl('Safe to spend', 'ใช้ได้จริง')}</span><span class="num">${fm(r.safe)}</span></div>`;
 
+  // category bars from the cycle plan
+  const cs = C.cycleStatus(ST, ST.today);
+  homeCats(cs);
+  endCard();
+
   // to do: everything that needs a tap, most urgent first
   const T = [];
+  if (cs.belowFloor) T.push({ id: 'cfloor', cls: 'red', ico: 'i-route', t: tl(`Cash flow is below ฿${fm0(ST.cfFloor)}`, `Cash flow ต่ำกว่า ฿${fm0(ST.cfFloor)}`),
+    sub: tl(`Now ฿${fm(cs.cashflow)}`, `ตอนนี้มี ฿${fm(cs.cashflow)}`), btn: tl('View', 'ดู'), fn: () => go('wallet') });
+  Object.entries(cs.overStreak).filter(([, n]) => n >= 3).forEach(([id, n]) => T.push({ id: 'streak', cls: 'grey', ico: 'i-split',
+    t: tl(`${cn(id)} went over budget ${n} cycles in a row`, `หมวด ${cn(id)} เกินงบ ${n} รอบติด`), sub: tl('Try changing its starting budget', 'ลองปรับค่าตั้งต้นไหม'), btn: tl('Open plan', 'เปิดแผน'), fn: () => go('plan') }));
   allSt.filter(s => s.closed && s.remaining > 0).sort((a, z) => a.due.localeCompare(z.due)).forEach(s => {
     const over = s.status === 'overdue', src = cardFrom(s.card), left = C.daysBetween(ST.today, s.due);
     T.push({ id: 'due', cls: over || left <= 3 ? 'red' : '', ico: 'i-card',
@@ -286,13 +303,6 @@ function home() {
   { const pay = planPay(), salDone = salaryIn(pay);
     if ((r.daysLeft <= 2 || pay <= ST.today) && !salDone) T.unshift({ id: 'plan', ico: 'i-split', t: pay <= ST.today ? tl(`Salary for the cycle from ${dl(pay)} in yet? Split it when it is`, `เงินเดือนรอบ ${dl(pay)} เข้าหรือยัง? เข้าแล้วกดแบ่งเงิน`) : tl(`New cycle ${dl(pay)}: split your salary when it arrives`, `รอบใหม่เริ่ม ${dl(pay)} · เงินเดือนเข้าแล้วกดแบ่งเงิน`),
       sub: tl(`฿${fm(ST.salary)} into ${acct(ST.salaryTo)}`, `฿${fm(ST.salary)} เข้า ${acct(ST.salaryTo)}`), btn: tl('Open', 'เปิด'), fn: () => go('plan') }); }
-  if (r.daysLeft <= 3) {
-    const cf = r.balances['pot:cashflow'] || 0, amt = r.safe > 0 ? r.safe : Math.min(-r.safe, Math.max(0, cf));
-    if (amt) T.push({ id: 'close', cls: r.safe < 0 ? 'red' : 'grey', ico: 'i-route',
-      t: r.safe > 0 ? tl(`Cycle ends ${dl(cyc.end)} with ฿${fm(r.safe)} left`, `จบรอบ ${dl(cyc.end)} จะเหลือ ฿${fm(r.safe)}`) : tl(`Short ฿${fm(-r.safe)} this cycle`, `รอบนี้เงินขาด ฿${fm(-r.safe)}`),
-      sub: r.safe > 0 ? tl('Move it to Cash flow', 'ย้ายเข้า Cash flow (กองพักเงิน)') : (amt < -r.safe ? tl(`Cash flow has ฿${fm(amt)}: cover that much`, `Cash flow มี ฿${fm(amt)} · ดึงมาได้เท่านี้`) : tl(`Cover ฿${fm(amt)} from Cash flow`, `ดึง ฿${fm(amt)} จาก Cash flow (กองพักเงิน) มาเติม`)), btn: r.safe > 0 ? tl('Move', 'ย้าย') : tl('Cover', 'ดึงมา'),
-      fn: () => attempt(r.safe > 0 ? { type: 'transfer', date: ST.today, amount: amt, from: ST.spendTo, to: 'pot:cashflow', note: 'cycle close' } : { type: 'transfer', date: ST.today, amount: amt, from: 'pot:cashflow', to: ST.spendTo, note: 'cycle close' }) && home() });
-  }
   if (!ST.sample && ST.entries.length >= 10 && (!ST.lastBackup || C.daysBetween(ST.lastBackup, ST.today) > 30))
     T.push({ id: 'backup', cls: 'grey', ico: 'i-bell', t: tl('Back up your data', 'ถึงเวลาสำรองข้อมูล'), sub: tl('It lives only on this phone', 'ข้อมูลอยู่ในเครื่องนี้เท่านั้น'), btn: tl('Back up', 'สำรอง'), fn: () => { go('set'); openFold('Backup'); } });
   T.sort((x, y) => (y.cls === 'danger') - (x.cls === 'danger')); // a balance that cannot be right always comes first
@@ -312,6 +322,76 @@ function home() {
   // recent
   $('recent').innerHTML = sorted().filter(e => e.date <= ST.today).slice(0, 5).map(rowHTML).join('');
   bindRows($('recent'));
+}
+// end-of-cycle card: last 2 days of a cycle, or the first 5 days of the next, until the leftover is moved (or dismissed when there is none)
+function endCard() {
+  const el = $('endCard'), cy = cyc(ST.today); el.hidden = true;
+  let tgt = null;
+  if (C.daysBetween(ST.today, cy.end) <= 1) tgt = { cycle: cy, asOf: ST.today };
+  else if (C.daysBetween(cy.start, ST.today) <= 4) {
+    const pv = cyc(C.addDays(cy.start, -1));
+    if (ST.entries.some(e => e.date >= pv.start && e.date <= pv.end)) tgt = { cycle: pv, asOf: pv.end };
+  }
+  if (!tgt || !ST.setupDone) return;
+  const start = tgt.cycle.start;
+  if (ST.entries.some(e => e.tag === `sweep:${start}`) || (ST.sweptZero || []).includes(start)) return;
+  const sw = C.sweep(ST, tgt.asOf), bal = C.balances(ST, { asOf: tgt.asOf })[sw.from] || 0, owed = Math.max(0, bal - sw.amount);
+  const cats = C.cycleStatus(ST, tgt.asOf).cats.filter(c => (c.budget > 0 || c.spent > 0) && c.left !== 0);
+  const when = tgt.asOf === ST.today ? tl('today', 'วันนี้') : dl(tgt.asOf);
+  const sub = `${tl('Cycle', 'รอบ')} ${dl(tgt.cycle.start)} – ${dl(tgt.cycle.end)}`;
+  if (!(sw.amount > 0)) {
+    el.innerHTML = `<div class="lbl">${esc(sub)}</div><div class="amt" style="font-size:22px">${tl('Nothing left this cycle', 'รอบนี้ไม่มีเงินเหลือ')}</div>`
+      + `<button type="button" class="btn quiet" id="endDismiss">${tl('Got it', 'รับทราบ')}</button>`;
+    $('endDismiss').onclick = () => { ST.sweptZero = [...(ST.sweptZero || []), start]; persist(); home(); };
+    el.hidden = false; return;
+  }
+  const gap = Math.abs(sw.gap) > 1000;
+  el.innerHTML = `<div class="lbl">${tl('Left this cycle', 'รอบนี้เหลือ')} · ${esc(sub)}</div>`
+    + `<div class="amt num"><small>฿</small>${fm(sw.amount)}</div>`
+    + `<div class="arrow">${tl('Move it to Cash flow in one go', 'โอนเข้า Cash flow ทีเดียว')}</div>`
+    + `<div><div class="eln"><span>${esc(acct(sw.from))}<small>${esc(when)}</small></span><span class="num">${fm(bal)}</span></div>`
+    + (owed ? `<div class="eln"><span>${tl('Card owed', 'ค้างจ่ายบัตร')}<small>${tl('kept, not moved', 'กันไว้ ไม่โอน')}</small></span><span class="num">−${fm(owed)}</span></div>` : '') + `</div>`
+    + (cats.length ? `<p class="from">${tl('From categories: ', 'มาจากหมวด: ')}${cats.map(c => `${esc(cn(c.id))} ${c.left < 0 ? '−' : '+'}${fm0(Math.abs(c.left))}`).join(' · ')}</p>` : '')
+    + (gap ? `<div class="gapln"><span>${tl(`Differs from your records by ฿${fm0(Math.abs(sw.gap))}`, `ต่างจากที่จด ฿${fm0(Math.abs(sw.gap))}`)}</span><button type="button" id="endCheck">${tl('Check balance', 'เช็กยอด')}</button></div>` : '')
+    + `<button type="button" class="btn" id="endGo">${tl(`Move ฿${fm(sw.amount)} · plan the new cycle`, `โอน ฿${fm(sw.amount)} · เริ่มแผนรอบใหม่`)}</button>`;
+  if (gap) $('endCheck').onclick = () => { RA = sw.from; go('wallet'); setTimeout(() => $('realScb').scrollIntoView({ block: 'center' }), 0); };
+  $('endGo').onclick = () => {
+    attempt({ type: 'transfer', date: ST.today, amount: sw.amount, from: sw.from, to: 'pot:cashflow', note: 'cycle close', tag: `sweep:${start}` },
+      { msg: tl(`Moved ฿${fm0(sw.amount)} to Cash flow`, `โอน ฿${fm0(sw.amount)} เข้า Cash flow แล้ว`) }) && go('plan'); };
+  el.hidden = false;
+}
+// one bar per category: grey toward the budget, marigold when nearly used, hatched red past it
+function homeCats(cs) {
+  const rows = cs.cats.filter(c => c.budget > 0 || c.spent > 0);
+  $('catSec').hidden = !rows.length;
+  if (!rows.length) return;
+  const days = C.daysBetween(ST.today, cs.cycle.end) + 1;
+  $('catLeft').textContent = tl(`${cs.left < 0 ? "−" : ""}฿${fm0(Math.abs(cs.left))} left this cycle · ${days} days`, `รอบนี้เหลือ ${cs.left < 0 ? "−" : ""}฿${fm0(Math.abs(cs.left))} · อีก ${days} วัน`);
+  const later = ST.coverLater && ST.coverLater.cycleStart === cs.cycle.start ? ST.coverLater.ids : [];
+  const covered = id => ST.entries.reduce((s, e) => s + (e.tag === `cover:${cs.cycle.start}:${id}` ? e.amount : 0), 0);
+  $('hcats').innerHTML = rows.map(c => {
+    const over = c.spent - c.budget, ov = c.over, low = !ov && c.budget > 0 && c.left / c.budget < 0.15;
+    const bar = ov ? `<div class="hbar over"><div class="tr" style="flex:${c.budget}"><i style="width:100%"></i></div><div class="ov" style="flex:${over}"></div><span class="tick" style="left:${(c.budget / c.spent * 100).toFixed(1)}%"></span></div>`
+      : `<div class="hbar${low ? ' low' : ''}"><div class="tr"><i style="width:${(c.spent / c.budget * 100).toFixed(1)}%"></i></div></div>`;
+    const head = ov ? `<span class="num" style="color:var(--debit);font-weight:600">${tl('Over', 'เกิน')} ฿${fm0(over)}</span>` : `<span><span class="num">${tl('Left', 'เหลือ')} ${fm0(c.left)}</span> <small>/ ${fm0(c.budget)}</small></span>`;
+    let offer = '';
+    if (ov) {
+      const done = covered(c.id), need = over - done, amt = Math.min(need, cs.cashflow);
+      if (need <= 0) offer = `<div class="cover done"><span>${tl(`Covered ฿${fm0(done)} from Cash flow`, `ดึงจาก Cash flow แล้ว ฿${fm0(done)}`)}</span></div>`;
+      else if (amt > 0 && !later.includes(c.id)) offer = `<div class="cover"><span>${tl(`Cover ฿${fm0(amt)} from Cash flow?`, `ดึงจาก Cash flow ฿${fm0(amt)}?`)}</span><span class="acts"><button type="button" class="later" data-later="${esc(c.id)}">${tl('Later', 'ไว้ทีหลัง')}</button><button type="button" data-cover="${esc(c.id)}" data-amt="${amt}">${tl('Cover it', 'ดึงมาสมทบ')}</button></span></div>`;
+    }
+    return `<div class="hc"><button type="button" class="cbtn" data-cat="${esc(c.id)}"><span class="h"><span>${esc(cn(c.id))}</span>${head}</span>${bar}</button>${offer}</div>`;
+  }).join('');
+  $('hcats').querySelectorAll('[data-cat]').forEach(b => b.onclick = () => { HF = 'c:' + b.dataset.cat; go('hist'); });
+  $('hcats').querySelectorAll('[data-later]').forEach(b => b.onclick = () => {
+    ST.coverLater = { cycleStart: cs.cycle.start, ids: [...later, b.dataset.later] }; persist(); home(); });
+  $('hcats').querySelectorAll('[data-cover]').forEach(b => b.onclick = () => {
+    const id = b.dataset.cover, fresh = C.cycleStatus(ST, ST.today), f = fresh.cats.find(c => c.id === id);
+    const done = ST.entries.reduce((s, e) => s + (e.tag === `cover:${fresh.cycle.start}:${id}` ? e.amount : 0), 0);
+    const amt = f ? Math.min(Math.max(0, -f.left - done), fresh.cashflow) : 0;
+    if (amt <= 0) { toast(tl('Nothing left to cover', 'ไม่มีส่วนที่ต้องสมทบแล้ว')); return home(); }
+    attempt({ type: 'transfer', date: ST.today, amount: amt, from: 'pot:cashflow', to: ST.spendTo, note: 'cover ' + id, tag: `cover:${fresh.cycle.start}:${id}` },
+      { msg: tl(`Covered ${cn(id)} from Cash flow`, `ดึง Cash flow มาสมทบ${cn(id)}แล้ว`) }) && home(); });
 }
 let TODO_ALL = false; // Home shows the two most urgent to-dos until asked for the rest
 let RA = null; // account being checked against the bank app
@@ -671,9 +751,7 @@ $('qFrom').onclick = () => sheet(tl('Paid with', 'จ่ายด้วย'), AC
 });
 $('qDate').onclick = () => {
   sheet(tl('Date', 'วันที่'), [[ST.today, tl('Today', 'วันนี้')], [C.addDays(ST.today, -1), tl('Yesterday', 'เมื่อวาน')], [C.addDays(ST.today, -2), tl('2 days ago', '2 วันก่อน')]], F.date, k => { F.date = k; closeSheet(); },
-    `<label class="switch"><span>${tl('Other date', 'วันอื่น')}</span><input type="date" id="qsDate" value="${esc(F.date)}"></label>` +
-    (ST.startDate ? `<label class="switch"><span>${tl('Paid before I started the app', 'จ่ายไปก่อนเริ่มใช้แอป')}<br><small style="color:var(--ink-3);font-size:13px">${tl(`Dated ${dl(ST.startDate)} or earlier: balances are not deducted again`, `วันที่ ${dl(ST.startDate)} หรือก่อนนั้น · ไม่หักเงินในบัญชีซ้ำ`)}</small></span><input type="checkbox" id="qsPre" ${isPre() ? 'checked' : ''}></label>` : ''));
-  if ($('qsPre')) $('qsPre').onchange = ev => { if (ev.target.checked) { if (!(F.date <= ST.startDate)) F.date = ST.startDate; F.pre = true; } else { F.pre = false; if (F.date < ST.startDate) F.date = ST.today; } $('qsDate').value = F.date; renderQuick(); };
+    `<label class="switch"><span>${tl('Other date', 'วันอื่น')}</span><input type="date" id="qsDate" value="${esc(F.date)}"></label>`);
   $('qsDate').onchange = () => { const d = $('qsDate').value; if (C.isDate(d)) F.date = d; };
   $('qsDate').onblur = () => { if (C.isDate($('qsDate').value)) closeSheet(); };
 };
@@ -742,7 +820,7 @@ function renderHist() {
   // everyone who appears in the data: friends in splits and anyone money was owed to or by (e.g. Mom in old entries)
   const persons = [...new Set([...ST.entries.flatMap(e => (e.shares || []).map(s => s.p)), ...ST.entries.flatMap(e => [e.from, e.to]).filter(C.isPerson).map(a => a.slice(7))])];
   const F2 = [['all', tl('All', 'ทั้งหมด')], ...(liveCards().length ? [['cards', tl('Cards', 'บัตร')]] : []), ...liveAccts().map(k => ['a:' + k, acct(k)]),
-    ['income', tl('Income', 'รายรับ')], ['transfer', tl('Moves', 'โอน')], ['waiting', tl('Waiting refund', 'รอคืน')], ...persons.map(p => ['p:' + p, person(p)])];
+    ['income', tl('Income', 'รายรับ')], ['transfer', tl('Moves', 'โอน')], ['waiting', tl('Waiting refund', 'รอคืน')], ...persons.map(p => ['p:' + p, person(p)]), ...(HF.startsWith('c:') ? [[HF, cn(HF.slice(2))]] : [])];
   if (!F2.some(([k]) => k === HF)) HF = 'all';
   $('hf').innerHTML = F2.map(([k, l]) => `<button class="chip" aria-pressed="${HF === k}" data-k="${esc(k)}">${esc(l)}</button>`).join('');
   $('hf').querySelectorAll('button').forEach(b => b.onclick = () => { HF = b.dataset.k; renderHist(); });
@@ -752,6 +830,7 @@ function renderHist() {
     const sh = (e.shares || []).map(s => s.p);
     if (HF === 'cards' && !(C.isCard(e.from) || C.isCard(e.to))) return false;
     if (HF.startsWith('a:') && !(e.from === HF.slice(2) || e.to === HF.slice(2))) return false;
+    if (HF.startsWith('c:') && !(e.type === 'expense' && e.cat === HF.slice(2))) return false;
     if (HF === 'income' && e.type !== 'income') return false;
     if (HF === 'transfer' && e.type !== 'transfer') return false;
     if (HF === 'waiting' && !(e.shares && C.shareStatus(ST, e.id).some(s => s.left > 0))) return false;
@@ -804,6 +883,8 @@ function renderSum() {
   const sp = C.spending(ST, from, to), bud = budget * nCycles;
   $('stats').innerHTML = `<div><span>${tl('Spent', 'ใช้ไป')}</span><b class="num">${fm0(sp.mine)}</b></div><div><span>${tl('Budget', 'งบ')}</span><b class="num" style="${bud ? '' : 'font-size:13px;font-weight:500;color:var(--ink-3)'}">${bud ? fm0(bud) : tl('not set', 'ยังไม่ตั้ง')}</b></div>` +
     (sumMode === 'm' ? `<div><span>${tl('Left', 'เหลือ')}</span><b class="num ${!bud ? '' : bud - sp.mine < 0 ? 'neg' : 'pos'}">${bud ? fm0(bud - sp.mine) : '—'}</b></div>` : `<div><span>${tl('Income', 'รายรับ')}</span><b class="num">${fm0(sp.income)}</b></div>`);
+  { const drew = sumMode === 'm' ? C.cycleStatus(ST, to < ST.today ? to : ST.today).drewCashflow : 0;
+    $('sumDraw').hidden = !(drew > 0); $('sumDraw').textContent = drew > 0 ? tl(`Drew ฿${fm(drew)} from Cash flow this cycle`, `รอบนี้ดึง Cash flow ฿${fm(drew)}`) : ''; }
   const cats = ST.cats.filter(c => sp.byCat[c.id] || (!c.arch && c.b));
   $('catList').innerHTML = cats.map(c => { const v = sp.byCat[c.id] || 0, b = c.b * nCycles, over = b > 0 && v > b;
     return `<div class="cat ${over ? 'over' : ''}"><span>${esc(L === 'th' ? c.th : c.en)}${c.arch ? ` <span class="pill">${tl('archived', 'เก็บแล้ว')}</span>` : ''}</span><span class="amt num">${fm0(v)} <span class="of">/ ${b ? fm0(b) : '—'}</span></span><span class="track"><i style="width:${b ? Math.min(100, v / b * 100) : (v ? 100 : 0)}%"></i></span></div>`; }).join('') || `<p class="empty">${tl('No spending in this period yet. Tap + to record your first one.', 'ยังไม่มีรายจ่ายในช่วงนี้ · กด + เพื่อจดรายการแรก')}</p>`;
@@ -844,8 +925,62 @@ function potLine(p, have, from) {
   const early = x.per > x.need ? tl(` · at ฿${fm0(x.per)}/mo done ${ym(x.finish)}`, ` · โอนเดือนละ ฿${fm0(x.per)} ครบ ${ym(x.finish)}`) : '';
   return `${goal} ${tl(`by ${ym(x.by)}`, `ภายใน ${ym(x.by)}`)} · ${tl(`on track (needs ฿${fm0(x.need)}/mo)`, `ทันกำหนด (ต้องเดือนละ ฿${fm0(x.need)})`)}${early}`;
 }
+// ---------- CYCLE PLAN (salary · pockets · bills · categories for one cycle) ----------
+// Defaults live on state (salary, cats[].b, pots[].monthly); edits here for one cycle go to state.cyclePlans[start].
+const assignHTML = left => `<div><span class="k">${tl('Left to assign', 'เหลือให้แบ่ง')}</span><b>${left < 0 ? '−' : ''}฿${fm0(Math.abs(left))}</b></div>
+  <span class="k" style="text-align:right">${left === 0 ? tl('All assigned', 'แบ่งครบแล้ว') : left < 0 ? tl('Over by this much', 'แบ่งเกินไป') : tl('Must reach 0', 'ต้องเป็น 0 ถึงจะครบ')}</span>`;
+function renderCyclePlan() {
+  const start = planPay(), c = cyc(start), P = C.planFor(ST, start), ov = (ST.cyclePlans || {})[start] || {}, ovc = ov.cats || {};
+  const extra = C.extraIncome(ST, c), bal = C.balances(ST), sum = o => Object.values(o).reduce((a, b) => a + b, 0);
+  const pots = ST.pots.filter(p => !p.arch && p.id !== 'cashflow'), cats = ST.cats.filter(x => !x.arch);
+  const bills = (ST.bills || []).filter(b => !C.isPot(b.from));
+  const v = n => n / 100;
+  $('cpSub').textContent = `${dl(c.start)} – ${dl(c.end)}`;
+  const catRow = x => { const now = P.cats[x.id], over = ovc[x.id] != null && ovc[x.id] !== (x.b || 0);
+    return `<div class="ln"><span class="k">${esc(L === 'th' ? x.th : x.en)}<small>${tl('Default', 'ค่าตั้งต้น')} ${fm0(x.b || 0)}</small></span>
+      <span class="pin"><span class="row">${over ? `<span class="was">${fm0(x.b || 0)}</span>` : ''}<input class="field${over ? ' ch' : ''}" type="number" inputmode="decimal" min="0" step="0.01" data-pc="${esc(x.id)}" value="${v(now)}" aria-label="${esc(L === 'th' ? x.th : x.en)}"></span>
+      ${over ? `<button type="button" class="mkdef" data-mkdef="${esc(x.id)}">${tl('Make default', 'ตั้งเป็นค่าตั้งต้น')}</button>` : ''}</span></div>`; };
+  $('cyclePlan').innerHTML = `
+    <div class="ledger"><div class="ln"><span class="k">${tl('Salary this cycle', 'เงินเดือนรอบนี้')}<small>${tl('Usual', 'ค่าปกติ')} ฿${fm0(ST.salary)}</small></span>
+      <input class="field${ov.salary != null && ov.salary !== ST.salary ? ' ch' : ''}" id="cpSal" type="number" inputmode="decimal" min="0" step="0.01" value="${v(P.salary)}" aria-label="${tl('Salary this cycle', 'เงินเดือนรอบนี้')}"></div></div>
+    <div class="assign" id="cpAssign"></div>
+    ${extra > 0 ? `<div class="extra"><span>${tl(`New money <b class="num">฿${fm0(extra)}</b> not assigned yet`, `เงินเพิ่ม <b class="num">฿${fm0(extra)}</b> ยังไม่ได้แบ่ง`)}</span><button type="button" class="btn" id="cpSplitExtra">${tl('Assign', 'แบ่ง')}</button></div>` : ''}
+    <div class="sec"><h2><span class="h">${tl('Save to MAKE', 'โอนเก็บ MAKE ต้นรอบ')}</span><span class="num" id="cpPotSum">฿${fm0(sum(P.pots))}</span></h2><div class="ledger">
+      ${pots.map(p => `<div class="ln"><span class="k">${esc(pn(p))}<small>${esc(potLine(p, bal['pot:' + p.id] || 0, start))}</small></span><input class="field" type="number" inputmode="decimal" min="0" step="0.01" data-pp="${esc(p.id)}" value="${P.pots[p.id] ? v(P.pots[p.id]) : ''}" placeholder="0" aria-label="${esc(pn(p))}"></div>`).join('') || `<div class="ln"><span class="k">${tl('No pockets yet', 'ยังไม่มีกอง')}</span></div>`}</div></div>
+    <div class="sec"><h2><span class="h">${tl('Monthly bills', 'บิลประจำ')}</span><span class="num">฿${fm0(P.bills)}</span></h2><div class="ledger">
+      ${bills.map(b => `<div class="ln"><span class="k">${esc(b.n)}</span><span class="num">${fm0(b.amount)}</span></div>`).join('') || `<div class="ln"><span class="k">${tl('No monthly bills', 'ไม่มีบิลประจำ')}</span></div>`}</div>
+      <button type="button" class="btn link" id="cpBills">${tl('Change bills in Settings ›', 'แก้บิลในตั้งค่า ›')}</button></div>
+    <div class="sec" id="cpCats"><h2><span class="h">${tl('Spending categories', 'หมวดใช้จ่าย')}</span><span class="num" id="cpCatSum">฿${fm0(sum(P.cats))}</span></h2><div class="ledger">${cats.map(catRow).join('')}</div></div>`;
+  // live total while typing; the value is stored on change
+  const read = (sel, f) => [...$('cyclePlan').querySelectorAll(sel)].reduce((s, i) => { const x = String(i.value).trim() === '' ? 0 : C.toSatang(i.value); return s + (x >= 0 ? x : 0); }, 0);
+  const live = () => { const sal = C.toSatang($('cpSal').value) || 0, pp = read('[data-pp]'), cc = read('[data-pc]');
+    const left = sal + extra - pp - P.bills - cc;
+    $('cpAssign').className = 'assign' + (left === 0 ? ' ok' : ''); $('cpAssign').innerHTML = assignHTML(left);
+    $('cpPotSum').textContent = '฿' + fm0(pp); $('cpCatSum').textContent = '฿' + fm0(cc); };
+  live();
+  $('cyclePlan').querySelectorAll('input').forEach(i => i.oninput = live);
+  const own = () => ((ST.cyclePlans ||= {})[start] ||= {});
+  const tidy = () => { const o = ST.cyclePlans && ST.cyclePlans[start]; if (!o) return; if (o.cats && !Object.keys(o.cats).length) delete o.cats; if (!Object.keys(o).length) delete ST.cyclePlans[start]; };
+  const done = () => { tidy(); persist(); renderPlan(); };
+  $('cpSal').onchange = ev => { const x = C.toSatang(ev.target.value); if (!(x > 0)) { toast(tl('Enter an amount above 0', 'ใส่ยอดมากกว่า 0')); return renderPlan(); }
+    if (x === ST.salary) delete own().salary; else own().salary = x; done(); };
+  $('cyclePlan').querySelectorAll('[data-pc]').forEach(i => i.onchange = () => { const cat = ST.cats.find(x => x.id === i.dataset.pc), t = i.value.trim(), x = t === '' ? 0 : C.toSatang(t);
+    if (!(x >= 0)) { toast(tl('Budget cannot be negative', 'งบติดลบไม่ได้')); return renderPlan(); }
+    const o = own(); o.cats ||= {}; if (x === (cat.b || 0)) delete o.cats[cat.id]; else o.cats[cat.id] = x; done(); });
+  $('cyclePlan').querySelectorAll('[data-mkdef]').forEach(b => b.onclick = () => { const cat = ST.cats.find(x => x.id === b.dataset.mkdef);
+    cat.b = ovc[cat.id]; delete own().cats[cat.id]; done(); toast(tl('Saved as the default for every cycle', 'ตั้งเป็นค่าตั้งต้นทุกรอบแล้ว')); });
+  $('cyclePlan').querySelectorAll('[data-pp]').forEach(i => i.onchange = () => { const p = ST.pots.find(x => x.id === i.dataset.pp), t = i.value.trim(), cur = P.pots[p.id] || 0;
+    if (t === '') return renderPlan(); // blank: back to the shown amount
+    const x = C.toSatang(t);
+    if (!(x >= 0)) { toast(tl('Amounts must be 0 or more', 'ยอดต้องเป็น 0 ขึ้นไป')); return renderPlan(); }
+    if (x === cur) return renderPlan();
+    p.monthly = x; delete p.fixed; done(); });
+  $('cpBills').onclick = () => go('set');
+  if ($('cpSplitExtra')) $('cpSplitExtra').onclick = () => { const f = $('cpCats').querySelector('[data-pc]'); $('cpCats').scrollIntoView({ behavior: 'smooth', block: 'start' }); if (f) f.focus({ preventScroll: true }); };
+}
 function renderPlan() {
-  const pay = planPay(), when = ST.today > pay ? ST.today : pay, SAL = ST.salary, tag = k => `plan:${pay}:${k}`; // late salary: record on the day it arrives
+  renderCyclePlan();
+  const pay = planPay(), when = ST.today > pay ? ST.today : pay, SAL = C.planFor(ST, pay).salary, tag = k => `plan:${pay}:${k}`; // late salary: record on the day it arrives
   const done = k => ST.entries.find(e => e.tag === tag(k) || (e.tag || '').startsWith(tag(k) + ':'));
   const bal = C.balances(ST);
   const list = ST.pots.filter(p => !p.arch).map(p => ({ p, amt: monthly(p, bal['pot:' + p.id] || 0, pay) })).filter(x => x.amt > 0);
@@ -909,14 +1044,13 @@ function renderSet() {
   // categories
   const used = id => ST.entries.filter(e => e.cat === id).length;
   $('catEd').innerHTML = ST.cats.map((c, i) => `<div class="ed ${c.arch ? 'arch' : ''}"><input class="name" id="cn${i}" value="${esc(L === 'th' ? c.th : c.en)}" ${c.arch ? 'disabled' : ''} aria-label="${tl('Category name', 'ชื่อหมวด')}">
-    ${c.arch ? `<span class="hint" style="font-size:13px">${used(c.id)} ${tl('entries', 'รายการ')}</span>` : `<input class="field" id="cb${i}" type="number" min="0" value="${c.b / 100}" aria-label="${tl('Budget', 'งบ')}">`}
+    ${c.arch ? `<span class="hint" style="font-size:13px">${used(c.id)} ${tl('entries', 'รายการ')}</span>` : `<span class="num" style="font-size:13px;color:var(--ink-2)">${fm0(c.b)}</span>`}
     <button class="act" id="ca${i}">${c.arch ? tl('Restore', 'คืน') : tl('Archive', 'เก็บ')}</button></div>`).join('') +
     `<div class="addrow"><input id="newCat" placeholder="${tl('New category', 'หมวดใหม่')}" aria-label="${tl('New category', 'หมวดใหม่')}"><button id="addCat">${tl('Add', 'เพิ่ม')}</button></div>`;
   ST.cats.forEach((c, i) => {
     const n = $('cn' + i); if (n) n.onchange = ev => { const v = ev.target.value.trim(); if (!v) { ev.target.value = L === 'th' ? c.th : c.en; return; }
       if (ST.cats.some(x => x !== c && (x.en === v || x.th === v))) { toast(tl('That name is already used', 'มีชื่อนี้แล้ว')); ev.target.value = L === 'th' ? c.th : c.en; return; }
       L === 'th' ? (c.th = v) : (c.en = v); persist(); toast(tl('Renamed. Past entries follow.', 'เปลี่ยนชื่อแล้ว รายการเก่าเปลี่ยนตาม')); };
-    const b = $('cb' + i); if (b) b.onchange = ev => { const v = C.toSatang(ev.target.value); if (!(v >= 0)) { toast(tl('Budget cannot be negative', 'งบติดลบไม่ได้')); ev.target.value = c.b / 100; return; } c.b = v; persist(); };
     $('ca' + i).onclick = () => { if (!c.arch && ST.cats.filter(x => !x.arch).length <= 1) { toast(tl('Keep at least one category', 'ต้องเหลืออย่างน้อยหนึ่งหมวด')); return; }
       c.arch = !c.arch; if (c.arch && F.cat === c.id) F.cat = ST.cats.find(x => !x.arch).id; persist(); toast(c.arch ? tl('Archived. History kept.', 'เก็บแล้ว ประวัติยังอยู่') : tl('Restored', 'คืนแล้ว')); renderSet(); };
   });
@@ -951,11 +1085,14 @@ function renderSet() {
   $('salaryIn').onchange = ev => { const v = C.toSatang(ev.target.value); if (!(v > 0)) { ev.target.value = ST.salary / 100; toast(tl('Enter an amount above 0', 'ใส่ยอดมากกว่า 0')); return; } ST.salary = v; persist(); toast(tl('Salary saved', 'บันทึกเงินเดือนแล้ว')); };
   $('backupInfo').textContent = ST.lastBackup ? tl(`Last backup ${dly(ST.lastBackup)}`, `สำรองล่าสุด ${dly(ST.lastBackup)}`) : tl('No backup yet', 'ยังไม่เคยสำรอง');
   const PD = ST.payday || [], pend = PD.find(x => x.since > ST.today);
-  $('paydayIn').value = pend ? pend.day : payDay().day;
-  $('paydayNote').textContent = pend ? (() => { const mid = cyc(C.addDays(cyc(ST.today).end, 1)); return tl(`Moves to day ${pend.day} from ${dly(pend.since)}. This cycle stays as it is; ${dl(mid.start)} – ${dl(mid.end)} is a one-off in-between cycle.`, `เปลี่ยนเป็นวันที่ ${pend.day} ตั้งแต่ ${dly(pend.since)} · รอบนี้ไม่เปลี่ยน · รอบ ${dl(mid.start)} – ${dl(mid.end)} เป็นรอบคั่นครั้งเดียว`); })()
+  $('paydayIn').value = PD_STEP ? PD_STEP.day : pend ? pend.day : payDay().day;
+  $('paydayNote').textContent = pend && pend.prevStart ? tl(`This cycle ends ${dly(C.addDays(pend.since, -1))}. Day ${pend.day} from ${dly(pend.since)}.`, `รอบนี้จบ ${dly(C.addDays(pend.since, -1))} · เริ่มวันที่ ${pend.day} ตั้งแต่ ${dly(pend.since)}`) : pend ? (() => { const mid = cyc(C.addDays(cyc(ST.today).end, 1)); return tl(`Moves to day ${pend.day} from ${dly(pend.since)}. This cycle stays as it is; ${dl(mid.start)} – ${dl(mid.end)} is a one-off in-between cycle.`, `เปลี่ยนเป็นวันที่ ${pend.day} ตั้งแต่ ${dly(pend.since)} · รอบนี้ไม่เปลี่ยน · รอบ ${dl(mid.start)} – ${dl(mid.end)} เป็นรอบคั่นครั้งเดียว`); })()
     : tl(`For example, 24 means each cycle runs from the 24th to the 23rd. Salary counts only once you record it arriving, so a late salary never shows as money you have. In a short month, a late day becomes the month's last day.`, `เช่น ตั้ง 24 = รอบงบ 24 ถึง 23 เดือนถัดไป · เงินเดือนนับเมื่อจดว่าเข้าแล้วเท่านั้น ถ้าเลทก็ไม่นับล่วงหน้า · เดือนที่ไม่มีวันนั้นจะใช้วันสุดท้ายของเดือน`);
-  $('paydayIn').onchange = ev => { const v = +ev.target.value; if (!(Number.isInteger(v) && v >= 1 && v <= 31)) { toast(tl('Day must be 1 to 31', 'วันต้องอยู่ระหว่าง 1 ถึง 31')); return renderSet(); }
-    const since = C.changePayday(ST, ST.today, v); persist(); toast(since ? tl(`Cycle starts on day ${v} from ${dly(since)}`, `รอบเริ่มวันที่ ${v} ตั้งแต่ ${dly(since)}`) : tl('Cycle day unchanged', 'วันเริ่มรอบเหมือนเดิม')); renderSet(); };
+  $('paydayIn').onchange = ev => { const v = +ev.target.value; if (!(Number.isInteger(v) && v >= 1 && v <= 31)) { toast(tl('Day must be 1 to 31', 'วันต้องอยู่ระหว่าง 1 ถึง 31')); PD_STEP = null; return renderSet(); }
+    if (v === ((ST.payday || []).filter(x => x.since <= ST.today).at(-1) || { day: 28 }).day) { C.changePayday(ST, ST.today, v); PD_STEP = null; persist(); toast(tl('Cycle day unchanged', 'วันเริ่มรอบเหมือนเดิม')); return renderSet(); }
+    PD_STEP = { day: v, start: cyc(ST.today).start, end: defaultEndOn(v) }; renderPaydayStep(); };
+  renderPaydayStep();
+  document.querySelectorAll('#s-set [data-goplan]').forEach(b => b.onclick = () => go('plan'));
   renderHelpList();
   setSubs();
   $('exportBtn').onclick = exportBackup;
@@ -963,6 +1100,38 @@ function renderSet() {
   $('eraseBtn').onclick = ev => { const b = ev.currentTarget;
     if (b.dataset.armed !== '2') { b.dataset.armed = String((+b.dataset.armed || 0) + 1); b.textContent = b.dataset.armed === '1' ? tl('This deletes every entry on this phone. Tap again', 'จะลบทุกรายการในเครื่องนี้ แตะอีกครั้ง') : tl('Last chance: tap to erase', 'แตะครั้งสุดท้ายเพื่อลบ'); return; }
     window.Store.erase().then(() => { SU = null; ST = emptyState(); ST.today = localToday(); F = blankForm(); go('setup'); }); };
+}
+
+// first date with day-of-month `day` (clamped to month length) strictly after `d`, then the ones after it
+const payDatesFrom = (day, d) => { const [y, m] = d.split('-').map(Number), out = [];
+  for (let i = 0; i < 5; i++) { const t = new Date(Date.UTC(y, m - 1 + i, 1)), dim = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate();
+    const x = `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(Math.min(day, dim)).padStart(2, '0')}`; if (x > d) out.push(x); }
+  return out; };
+// the cycle open now ends the day before a new-day date that is within 14 days of where it would have ended anyway
+function defaultEndOn(day) {
+  const cy = cyc(ST.today), nat = C.addDays(cy.end, 1), ds = payDatesFrom(day, ST.today);
+  const hit = ds.find(x => Math.abs(C.daysBetween(nat, x)) <= 14) || ds.reduce((a, x) => Math.abs(C.daysBetween(nat, x)) < Math.abs(C.daysBetween(nat, a)) ? x : a, ds[0]);
+  return C.addDays(hit, -1);
+}
+let PD_STEP = null; // { day, start, end } while the cycle-day step is open
+function renderPaydayStep() {
+  const box = $('paydayStep'); if (!box) return;
+  box.hidden = !PD_STEP; if (!PD_STEP) { box.innerHTML = ''; return; }
+  const { day, start, end } = PD_STEP, since = C.addDays(end, 1);
+  box.innerHTML = `<p class="pdt">${tl('When does this cycle run?', 'รอบนี้เริ่มและจบวันไหน?')}</p>`
+    + `<label class="pdr"><span>${tl('Starts', 'เริ่มวันที่')}</span><input type="date" id="pdStart" value="${start}" max="${ST.today}"></label>`
+    + `<label class="pdr"><span>${tl('Ends', 'จบวันที่')}</span><input type="date" id="pdEnd" value="${end}" min="${ST.today}"></label>`
+    + `<p class="pdprev" aria-live="polite">${tl(`This cycle: ${dly(start)} – ${dly(end)}. Then day ${day} from ${dly(since)}.`, `รอบนี้เริ่มวันที่ ${dly(start)} จบวันที่ ${dly(end)} · จากนั้นรอบเริ่มวันที่ ${day} ตั้งแต่ ${dly(since)}`)}</p>`
+    + `<div class="pdacts"><button type="button" class="btn ghost" id="pdCancel">${tl('Cancel', 'ยกเลิก')}</button><button type="button" class="btn" id="pdOk">${tl('Confirm', 'ยืนยัน')}</button></div>`;
+  const pick = (id, key, ok, msg) => $(id).onchange = ev => { const v = ev.target.value;
+    if (!C.isDate(v) || !ok(v)) { toast(msg); ev.target.value = PD_STEP[key]; return; }
+    PD_STEP[key] = v; renderPaydayStep(); };
+  pick('pdStart', 'start', v => v <= ST.today, tl('Start must be today or earlier', 'วันเริ่มต้องเป็นวันนี้หรือก่อนหน้า'));
+  pick('pdEnd', 'end', v => v >= ST.today, tl('End must be today or later', 'วันจบต้องเป็นวันนี้หรือหลังจากนี้'));
+  $('pdCancel').onclick = () => { PD_STEP = null; renderSet(); };
+  $('pdOk').onclick = () => { if (start > end) { toast(tl('Start must be before the end', 'วันเริ่มต้องอยู่ก่อนวันจบ')); return; }
+    const s = C.changePayday(ST, ST.today, day, { endOn: end, startFrom: start }); PD_STEP = null; persist();
+    toast(tl(`Cycle ends ${dly(end)}, then day ${day} from ${dly(s)}`, `รอบนี้จบ ${dly(end)} · จากนั้นเริ่มวันที่ ${day} ตั้งแต่ ${dly(s)}`)); renderSet(); };
 }
 
 // accounts, cards, monthly bills, and where the salary goes
@@ -1055,6 +1224,9 @@ function renderMoneySettings(bal) {
     tryOpening(s => { s.opening = s.opening || {}; if (v) s.opening[k] = v; else delete s.opening[k]; }); });
   liveCards().forEach((k, i) => { const go2 = () => { const b = val('ob' + i), u = val('ou' + i); if (b == null || u == null) { toast(tl('Enter 0 or more', 'ใส่ 0 ขึ้นไป')); renderSet(); return; }
     tryOpening(s => C.setCardOpening(s, k, b, u)); }; $('ob' + i).onchange = go2; $('ou' + i).onchange = go2; });
+  // Cash flow floor
+  $('cfFloorIn').value = ST.cfFloor ? (ST.cfFloor / 100).toFixed(2) : '';
+  $('cfFloorIn').onchange = ev => { const v = ev.target.value.trim() === '' ? 0 : C.toSatang(ev.target.value); if (Number.isNaN(v) || v < 0) { toast(tl('Enter 0 or more', 'ใส่ 0 ขึ้นไป')); renderSet(); return; } ST.cfFloor = v; saved(); };
   // salary
   $('salaryTo').innerHTML = opts(withCur(liveAccts(), ST.salaryTo), ST.salaryTo); $('spendTo').innerHTML = opts(withCur(liveAccts(), ST.spendTo), ST.spendTo);
   $('salaryTo').onchange = ev => { ST.salaryTo = ev.target.value; saved(); };
@@ -1104,12 +1276,14 @@ function freshSetup() {
     pots: ST.pots.filter(p => !p.arch).map(p => ({ id: p.id, name: pn(p), bal: '', monthly: '', goal: '', by: '', repeat: false })),
     cards: [{ k: 'CARD', n: '', close: '17', due: '2', from: 'SCB', billed: '', unbilled: '' }],
     bills: [tl('Rent', 'ค่าหอ'), tl('Internet', 'เน็ต'), tl('Car', 'ค่ารถ')].map(n => ({ n, amount: '', from: 'SCB' })),
+    cats: ST.cats.filter(c => !c.arch).map(c => ({ id: c.id, name: L === 'th' ? c.th : c.en, b: c.b ? String(c.b / 100) : '' })),
+    make: '',
     salaryTo: 'KPLUS', spendTo: 'SCB', salary: ST.salary ? String(ST.salary / 100) : '', payday: '28',
   };
 }
 function readSetup() {
   document.querySelectorAll('[data-su]').forEach(i => { const [list, idx, f] = i.dataset.su.split('.'); SU[list][+idx][f] = i.type === 'checkbox' ? i.checked : i.value; });
-  SU.salaryTo = $('setupSalaryTo').value || SU.salaryTo; SU.spendTo = $('setupSpendTo').value || SU.spendTo; SU.salary = $('setupSalary').value; SU.payday = $('setupPayday').value;
+  SU.salaryTo = $('setupSalaryTo').value || SU.salaryTo; SU.spendTo = $('setupSpendTo').value || SU.spendTo; SU.salary = $('setupSalary').value; SU.payday = $('setupPayday').value; SU.make = $('setupMake').value;
 }
 const suName = a => a.n.trim() || acct(a.k);
 // statements for a card with these days, as of today: the one that closed last and the one open now
@@ -1132,17 +1306,18 @@ function renderSetup() {
     ${cardish(a.n) ? `<span class="warnline">${tl('Is this a credit card? Put cards under Credit cards below, or money you owe will count as money you have.', 'นี่คือบัตรเครดิตหรือเปล่า? ถ้าใช่ ให้ใส่ในส่วนบัตรเครดิตด้านล่าง ไม่งั้นแอปจะนับยอดค้างบัตรเป็นเงินที่มี')}</span>` : ''}</div>`).join('');
   $('setupSalaryTo').innerHTML = acctKeys.map(k => `<option value="${esc(k)}" ${k === SU.salaryTo ? 'selected' : ''}>${esc(aName(k))}</option>`).join('');
   $('setupSpendTo').innerHTML = acctKeys.map(k => `<option value="${esc(k)}" ${k === SU.spendTo ? 'selected' : ''}>${esc(aName(k))}</option>`).join('');
-  $('setupSalary').value = SU.salary; $('setupPayday').value = SU.payday;
+  $('setupSalary').value = SU.salary; $('setupPayday').value = SU.payday; $('setupMake').value = SU.make;
+  $('setupPotPlan').innerHTML = SU.pots.map((p, i) => p.id === 'cashflow' ? '' : `<div class="ln"><span class="k">${esc(p.name.trim() || tl('Pocket (no name yet)', 'กอง (ยังไม่ตั้งชื่อ)'))}</span>${num('pots', i, 'monthly', p.monthly)}</div>`).join('') || `<div class="ln"><span class="k">${tl('No pockets yet', 'ยังไม่มีกอง')}</span></div>`;
+  $('setupCats').innerHTML = SU.cats.map((c, i) => `<div class="ln"><span class="k">${esc(c.name)}</span>${num('cats', i, 'b', c.b)}</div>`).join('');
   $('setupPots').innerHTML = SU.pots.map((p, i) => { const cf = p.id === 'cashflow', sat0 = v => (String(v ?? '').trim() === '' ? 0 : C.toSatang(v));
     const plan = { goal: sat0(p.goal) || 0, by: p.by || '', repeat: !!p.repeat, ...(sat0(p.monthly) ? { monthly: sat0(p.monthly) } : {}) };
     const ok = [plan.goal, plan.monthly || 0, sat0(p.bal)].every(v => v >= 0);
     return `<div class="ln" style="flex-wrap:wrap;gap:6px"><input class="note" style="flex:1;min-width:0;padding:7px 10px" data-su="pots.${i}.name" value="${esc(p.name)}" placeholder="${tl('Pocket name', 'ชื่อกอง')}" aria-label="${tl('Pocket name', 'ชื่อกอง')}" ${cf ? 'readonly' : ''}>${cf ? '' : del('pots', i)}
     <div class="pgoal" style="padding-left:0">
       <label>${tl('Balance ฿', 'ยอดตอนนี้ ฿')}<input class="field" type="number" inputmode="decimal" step="0.01" min="0" data-su="pots.${i}.bal" data-redraw="1" value="${esc(p.bal)}" placeholder="0"></label>
-      ${cf ? `<span class="pline" style="grid-column:2/-1;align-self:end">${tl('Holds what is left (or covers what is short) at the end of each cycle. The app uses it, so it has no goal and cannot be renamed.', 'กองพักเงินเหลือ/ขาดตอนจบแต่ละรอบ แอปใช้เอง จึงไม่มีเป้าและเปลี่ยนชื่อไม่ได้')}</span>` : !(p.open || String(p.goal || '').trim() || p.by || String(p.monthly || '').trim()) ? `<button type="button" class="btn link" style="grid-column:2/-1;align-self:end;padding:6px 0" data-open="${i}">${tl('+ Goal or monthly amount', '+ ตั้งเป้า / ยอดต่อเดือน')}</button>` : `
+      ${cf ? `<span class="pline" style="grid-column:2/-1;align-self:end">${tl('Holds what is left (or covers what is short) at the end of each cycle. The app uses it, so it has no goal and cannot be renamed.', 'กองพักเงินเหลือ/ขาดตอนจบแต่ละรอบ แอปใช้เอง จึงไม่มีเป้าและเปลี่ยนชื่อไม่ได้')}</span>` : !(p.open || String(p.goal || '').trim() || p.by || String(p.monthly || '').trim()) ? `<button type="button" class="btn link" style="grid-column:2/-1;align-self:end;padding:6px 0" data-open="${i}">${tl('+ Goal', '+ ตั้งเป้า')}</button>` : `
       <label>${tl('Goal ฿', 'เป้า ฿')}<input class="field" type="number" inputmode="decimal" step="0.01" min="0" data-su="pots.${i}.goal" data-redraw="1" value="${esc(p.goal)}" placeholder="${tl('none', 'ไม่มี')}"></label>
       <label>${tl('Reach by', 'ครบภายใน')}<input class="field" type="month" data-su="pots.${i}.by" data-redraw="1" value="${esc(p.by)}"></label>
-      <label>${tl('Per month ฿', 'โอน/เดือน ฿')}<input class="field" type="number" inputmode="decimal" step="0.01" min="0" data-su="pots.${i}.monthly" data-redraw="1" value="${esc(p.monthly)}" placeholder="${tl('auto', 'ให้แอปคิด')}"></label>
       <label class="rep"><input type="checkbox" data-su="pots.${i}.repeat" data-redraw="1" ${p.repeat ? 'checked' : ''}> ${tl('Same goal every year', 'เป้าวนทุกปี')}</label>
       ${ok && (plan.goal || plan.monthly) ? `<span class="pline">${esc(potLine(plan, sat0(p.bal) || 0, nextPay()))}</span>` : ''}`}
     </div></div>`; }).join('');
@@ -1166,6 +1341,9 @@ function renderSetup() {
     i.onchange = () => { readSetup(); if (isPicker(i)) return; if (i.dataset.redraw || i.dataset.su.endsWith('.n') || i.dataset.su.endsWith('.name')) renderSetup(); };
     if (isPicker(i)) i.onblur = () => { readSetup(); renderSetup(); };
   });
+  document.querySelectorAll('#s-setup [data-su], #setupMake, #setupSalary').forEach(i => { i.oninput = setupLive; });
+  $('setupMake').onchange = setupLive;
+  setupLive();
   document.querySelectorAll('#s-setup [data-del]').forEach(b => b.onclick = () => { readSetup(); const [list, i] = b.dataset.del.split('.');
     if (list === 'accts' && SU.accts.length <= 1) { toast(tl('Keep at least one account', 'ต้องมีอย่างน้อยหนึ่งบัญชี')); return; }
     const gone = SU[list].splice(+i, 1)[0];
@@ -1178,6 +1356,25 @@ function renderSetup() {
   $('addSetupCard').onclick = () => { readSetup(); SU.cards.push({ k: SU.cards.some(c => c.k === 'CARD') ? 'card:c' + Date.now() : 'CARD', n: '', close: '17', due: '2', from: SU.spendTo, billed: '', unbilled: '' }); renderSetup(); };
   $('addSetupBill').onclick = () => { readSetup(); SU.bills.push({ n: '', amount: '', from: SU.spendTo }); renderSetup(); document.querySelector(`[data-su="bills.${SU.bills.length - 1}.n"]`).focus(); };
 }
+// live numbers on the first-run page: MAKE total still to split across pockets, and the plan's left to assign
+const sat0 = v => (String(v ?? '').trim() === '' ? 0 : C.toSatang(v));
+const pos = v => { const x = sat0(v); return x >= 0 ? x : 0; };
+function setupNumbers() {
+  const unsplit = pos(SU.make) - SU.pots.reduce((s, p) => s + pos(p.bal), 0);
+  const potSum = SU.pots.reduce((s, p) => s + (p.id === 'cashflow' ? 0 : pos(p.monthly)), 0);
+  const billSum = SU.bills.reduce((s, b) => s + pos(b.amount), 0), catSum = SU.cats.reduce((s, c) => s + pos(c.b), 0);
+  return { unsplit, potSum, billSum, catSum, left: pos(SU.salary) - potSum - billSum - catSum };
+}
+function setupLive() {
+  readSetup(); const n = setupNumbers(), u = $('setupUnsplit');
+  u.className = 'unsplit' + (n.unsplit === 0 ? ' ok' : '');
+  u.innerHTML = n.unsplit === 0 ? `<span>${tl('MAKE total is fully split', 'แบ่งยอด MAKE ครบแล้ว')}</span><b>฿0</b>`
+    : n.unsplit > 0 ? `<span>${tl('Not split into pockets yet', 'ยังไม่ได้แบ่ง')}</span><b>฿${fm(n.unsplit)}</b>`
+    : `<span>${tl('Pockets add up to more than the total', 'กองรวมเกินยอดรวม')}</span><b>฿${fm(-n.unsplit)}</b>`;
+  $('startBtn').disabled = n.unsplit !== 0;
+  $('setupAssign').className = 'assign' + (n.left === 0 ? ' ok' : ''); $('setupAssign').innerHTML = assignHTML(n.left);
+  $('setupPotSum').textContent = '฿' + fm0(n.potSum); $('setupBillSum').textContent = '฿' + fm0(n.billSum); $('setupCatSum').textContent = '฿' + fm0(n.catSum);
+}
 $('startBtn') && ($('startBtn').onclick = () => {
   readSetup();
   SU.accts = SU.accts.filter(a => !(C.isAcct(a.k) && !a.n.trim() && !String(a.bal ?? '').trim() && a.k !== SU.salaryTo && a.k !== SU.spendTo));
@@ -1187,9 +1384,10 @@ $('startBtn') && ($('startBtn').onclick = () => {
   const pots = SU.pots.map(p => ({ ...p, name: p.name.trim(), balS: sat(p.bal), monS: sat(p.monthly), goalS: sat(p.goal) })).filter(p => p.name || p.balS || p.monS || p.goalS);
   const cards = SU.cards.map(c => ({ ...c, n: c.n.trim(), close: +c.close, due: +c.due, billedS: sat(c.billed), unbilledS: sat(c.unbilled) }));
   const bills = SU.bills.map(b => ({ ...b, n: b.n.trim(), amountS: sat(b.amount) })).filter(b => b.amountS);
-  const salary = sat(SU.salary), pday = +SU.payday;
+  const salary = sat(SU.salary), pday = +SU.payday, catB = SU.cats.map(c => sat(c.b));
+  if (setupNumbers().unsplit !== 0) return msg(tl('Split the MAKE total across pockets until nothing is left.', 'แบ่งยอดรวม MAKE ลงกองให้ครบก่อน'));
   if (!(Number.isInteger(pday) && pday >= 1 && pday <= 31)) return msg(tl('Cycle start must be a day from 1 to 31.', 'วันเริ่มรอบต้องอยู่ระหว่าง 1 ถึง 31'));
-  const all = [salary, ...accts.map(a => a.balS), ...pots.flatMap(p => [p.balS, p.monS, p.goalS]), ...cards.flatMap(c => [c.billedS, c.unbilledS]), ...bills.map(b => b.amountS)];
+  const all = [salary, ...accts.map(a => a.balS), ...pots.flatMap(p => [p.balS, p.monS, p.goalS]), ...cards.flatMap(c => [c.billedS, c.unbilledS]), ...bills.map(b => b.amountS), ...catB, sat(SU.make)];
   if (all.some(v => Number.isNaN(v) || v < 0)) return msg(tl('Amounts must be numbers of 0 or more.', 'ยอดต้องเป็นตัวเลข 0 ขึ้นไป'));
   if (!(salary > 0)) return msg(tl('Enter your monthly salary.', 'ใส่เงินเดือน'));
   if (SU.accts.some(a => C.isAcct(a.k) && !a.n.trim())) return msg(tl('Every account you added needs a name.', 'บัญชีที่เพิ่มต้องมีชื่อ'));
@@ -1220,6 +1418,7 @@ $('startBtn') && ($('startBtn').onclick = () => {
   });
   const billSum = bills.reduce((t, b) => t + b.amountS, 0);
   if (billSum > salary && SU.okBills !== billSum) { SU.okBills = billSum; return msg(tl(`Monthly bills add up to ฿${fm(billSum)}, more than your salary ฿${fm(salary)}. Check for a typo, then tap Start again.`, `รายจ่ายประจำรวม ฿${fm(billSum)} มากกว่าเงินเดือน ฿${fm(salary)} ตรวจว่าพิมพ์ผิดไหม ถ้าถูกแล้วกดเริ่มใช้งานอีกครั้ง`)); }
+  SU.cats.forEach((c, i) => { const x = ST.cats.find(k => k.id === c.id); if (x) x.b = catB[i]; });
   ST.payday = pday === 28 ? [] : [{ since: '0000-01-01', day: pday }];
   Object.assign(ST, { opening: o, openingStatements: os, setupDone: true, startDate: ST.today, sample: false });
   SU = null; persist(); toast(tl('All set. Record your first entry with +', 'พร้อมแล้ว กด + เพื่อจดรายการแรก')); go('home'); let seen = false; try { seen = !!localStorage.getItem('toured'); } catch (e) {} if (!seen) showTour(0);

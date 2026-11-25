@@ -89,6 +89,26 @@ button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:tra
 .due .txt small{color:var(--ink-2);font-size:13px}
 .due button{border:0;background:var(--surface);border-radius:99px;padding:7px 12px;font-size:13px;font-weight:600;box-shadow:var(--shadow)}
 
+/* home: category bars (budget left per category) */
+.hcats{padding:0 14px}
+.hc{border-bottom:1px solid var(--line);padding:4px 0 10px}.hc:last-child{border-bottom:0}
+.cbtn{display:flex;flex-direction:column;align-items:stretch;width:100%;border:0;background:none;color:inherit;font:inherit;text-align:left;padding:8px 0 6px;min-height:44px}
+.cbtn .h{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:8px}
+.cbtn .h small{color:var(--ink-3);font-size:13px}
+.cbtn .over-t{color:var(--debit);font-weight:600}
+.hbar{position:relative;height:8px;display:flex;border-radius:5px}
+.hbar .tr{flex:1;background:var(--line);border-radius:5px;overflow:hidden}
+.hbar .tr i{display:block;height:100%;background:var(--ink-2);border-radius:5px}
+.hbar.low .tr i{background:var(--marigold)}
+.hbar.over .tr{border-radius:5px 0 0 5px}.hbar.over .tr i{border-radius:5px 0 0 5px}
+.hbar .ov{background:repeating-linear-gradient(135deg,var(--debit) 0 4px,color-mix(in srgb,var(--debit) 70%,var(--surface)) 4px 7px);border-radius:0 5px 5px 0}
+.hbar .tick{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);border-radius:1px}
+.cover{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;background:var(--debit-tint);border-radius:12px;padding:4px 6px 4px 12px;margin-top:6px;font-size:13px}
+.cover .acts{display:flex;gap:6px;margin-left:auto}
+.cover button{border:0;border-radius:99px;padding:0 14px;min-height:44px;font:inherit;font-size:13px;font-weight:600;background:var(--debit);color:var(--surface)}
+.cover button.later{background:transparent;color:var(--ink-2)}
+.cover.done{background:var(--raise);color:var(--ink-2);padding:10px 12px}
+
 /* pockets */
 .pk{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:14px}
 .pk:last-child{border-bottom:0}
@@ -464,6 +484,25 @@ input[type=date]{min-height:44px}
 .al .sub .field{font-size:16px;min-height:44px}
 .al .ck{width:36px;height:36px}
 #s-plan [data-back]{min-height:44px}
+/* cycle plan */
+.cplan{display:flex;flex-direction:column;gap:16px}
+.assign{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--hero);color:#fff;border-radius:16px;padding:12px 16px;box-shadow:0 8px 20px -12px rgba(0,0,0,.45)}
+.assign .k{font-size:13px;color:rgba(255,255,255,.78)}
+.assign b{display:block;font-size:22px;font-family:var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:-.01em;color:#ffad99}
+.assign.ok b{color:#7fe0b4}
+.extra{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--credit-tint);border-radius:14px;padding:10px 14px;font-size:13px}
+.extra .btn{width:auto;min-height:40px;padding:6px 16px}
+.pin{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.pin .row{display:flex;align-items:center;gap:6px}
+.cplan .field{width:108px;font-size:16px}
+.field.ch{border-color:var(--marigold);background:color-mix(in srgb,var(--marigold) 14%,var(--surface))}
+.was{font-size:12px;color:var(--ink-3);text-decoration:line-through;font-family:var(--f-num)}
+.mkdef{font:inherit;font-size:12px;color:var(--accent-ink);background:none;border:0;padding:4px 0;text-decoration:underline;text-underline-offset:3px;cursor:pointer;min-height:32px}
+.unsplit{display:flex;justify-content:space-between;align-items:center;gap:10px;border-radius:12px;padding:10px 14px;font-size:13px;background:var(--debit-tint);color:var(--debit)}
+.unsplit.ok{background:var(--credit-tint);color:var(--credit)}
+.unsplit b{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+#startBtn:disabled{opacity:.45;cursor:not-allowed}
+.cplan h1.sub{font-size:18px;margin:12px 0 0}
 summary{min-height:44px;display:flex;align-items:center}
 .btn.link{min-height:44px}
 .prow .field,.ed .field{min-height:44px}
@@ -548,6 +587,29 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
 .pgoal .rep{grid-column:1/-1;flex-direction:row!important;justify-content:flex-start;align-items:center;gap:10px;min-height:44px}
 .pgoal input[type=checkbox]{width:22px!important;height:22px;flex:none;margin:0}
 .pgoal .pline{grid-column:1/-1}
+/* end-of-cycle card (Home) and cycle-day step (Settings) */
+.endcard{background:var(--hero);color:#fff;border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow)}
+.endcard[hidden]{display:none}
+.endcard .lbl{font-size:13px;color:rgba(255,255,255,.78)}
+.endcard .amt{font-size:38px;font-weight:700;letter-spacing:-.5px;line-height:1.1}
+.endcard .amt small{font-size:38px;color:inherit;font-weight:700}
+.endcard .arrow{font-size:13px;color:rgba(255,255,255,.78)}
+.endcard .eln{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.14);font-size:14px}
+.endcard .eln:last-of-type{border-bottom:0}
+.endcard .eln small{display:block;font-size:13px;color:rgba(255,255,255,.7)}
+.endcard .from{font-size:13px;color:rgba(255,255,255,.78);margin:0;line-height:1.5}
+.endcard .gapln{background:rgba(244,201,138,.14);border-radius:12px;padding:6px 12px;font-size:13px;color:#f4c98a;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.endcard .gapln button{width:auto;background:none;border:0;color:#f4c98a;font:inherit;font-weight:600;text-decoration:underline;text-underline-offset:3px;padding:6px 0;min-height:44px;cursor:pointer}
+.endcard .btn{background:var(--accent-btn);color:var(--marigold-ink);min-height:48px}
+.endcard .btn.quiet{background:rgba(255,255,255,.12);color:#fff}
+.endcard button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.pdstep{background:var(--raise);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.pdstep[hidden]{display:none}
+.pdstep .pdt{font-size:14px;font-weight:600;margin:0}
+.pdstep .pdr{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;color:var(--ink-2)}
+.pdstep .pdr input{flex:none;width:160px}
+.pdstep .pdprev{font-size:14px;margin:0;color:var(--ink)}
+.pdstep .pdacts{display:flex;gap:8px}.pdstep .pdacts .btn{flex:1}
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -594,6 +656,13 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
       <details class="why" id="why"><summary data-en="Where this number comes from" data-th="ตัวเลขนี้มาจากไหน">Where this number comes from</summary><div id="calc"></div></details>
     </div>
 
+    <div class="endcard" id="endCard" hidden></div>
+
+    <div class="sec" id="catSec" hidden>
+      <h2><span class="h" data-en="Categories" data-th="หมวด">Categories</span><span id="catLeft"></span></h2>
+      <div class="ledger hcats" id="hcats"></div>
+    </div>
+
     <div class="sec">
       <h2><span class="h" data-en="To do" data-th="ต้องจัดการ">To do</span><span id="todoN"></span></h2>
       <div id="todo" class="todos"></div>
@@ -633,23 +702,30 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
 
   <!-- FIRST-RUN SETUP -->
   <section class="screen" id="s-setup" hidden>
-    <div class="top"><div><h1 data-en="Let's set your starting point" data-th="ตั้งยอดเริ่มต้น">Let's set your starting point</h1><div class="cycle" data-en="Copy today's balances from your bank apps. Leave blank for 0." data-th="ดูยอดวันนี้จากแอปธนาคาร ช่องที่ไม่มีเว้นว่างได้">Copy today's balances.</div></div><button class="lang" id="lang2" aria-label="Switch language">ไทย / EN</button></div>
+    <div class="top"><div><h1 data-en="Where your money is today" data-th="เงินอยู่ที่ไหนวันนี้">Where your money is today</h1><div class="cycle" data-en="Copy today's balances from your bank apps. Leave blank for 0." data-th="ดูยอดวันนี้จากแอปธนาคาร ช่องที่ไม่มีเว้นว่างได้">Copy today's balances.</div></div><button class="lang" id="lang2" aria-label="Switch language">ไทย / EN</button></div>
     <div class="sec"><h2><span class="h" data-en="Accounts" data-th="บัญชี">Accounts</span><span data-en="Balance now" data-th="ยอดตอนนี้">Balance now</span></h2><div class="ledger" id="setupAccts"></div>
-      <button class="btn link" id="addSetupAcct" data-en="+ Add an account" data-th="+ เพิ่มบัญชี">Add an account</button>
-      <div class="ledger" style="margin-top:10px">
-      <div class="ln"><span class="k" data-en="Monthly salary" data-th="เงินเดือน">Monthly salary</span><input class="field" id="setupSalary" data-ph-en="Take-home pay" data-ph-th="ยอดที่ได้รับจริง" type="number" inputmode="decimal" step="0.01" min="0"></div>
-      <div class="ln"><span class="k" data-en="Cycle starts on day" data-th="รอบเริ่มวันที่">Cycle starts on day</span><input class="field mini" id="setupPayday" type="number" inputmode="numeric" min="1" max="31" value="28"></div>
-      <div class="ln"><span class="k" data-en="Salary arrives in" data-th="เงินเดือนเข้าบัญชี">Salary arrives in</span><select class="sel" id="setupSalaryTo"></select></div>
-      <div class="ln"><span class="k" data-en="Money for spending goes to" data-th="เงินที่เหลือไว้ใช้จ่ายโอนไป">Spending account</span><select class="sel" id="setupSpendTo"></select></div></div></div>
-    <div class="sec"><h2><span class="h" data-en="MAKE pockets" data-th="กองใน MAKE">MAKE pockets</span></h2><div class="ledger" id="setupPots"></div>
+      <button class="btn link" id="addSetupAcct" data-en="+ Add an account" data-th="+ เพิ่มบัญชี">Add an account</button></div>
+    <div class="sec"><h2><span class="h" data-en="MAKE pockets" data-th="กองใน MAKE">MAKE pockets</span></h2>
+      <div class="ledger"><div class="ln"><span class="k" data-en="Total in MAKE today" data-th="ยอดรวมใน MAKE วันนี้">Total in MAKE today</span><input class="field" id="setupMake" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0"></div></div>
+      <div class="ledger" id="setupPots"></div>
+      <div class="unsplit" id="setupUnsplit" role="status" aria-live="polite"></div>
       <button class="btn link" id="addSetupPot" data-en="+ Add a pocket" data-th="+ เพิ่มกอง">Add a pocket</button>
-      <p class="hint" data-en="Use the same names as in MAKE. Goals can be set or changed later in Settings." data-th="ตั้งชื่อให้ตรงกับใน MAKE · ตั้งหรือแก้เป้าทีหลังได้ในตั้งค่า">Use the same names as in MAKE.</p></div>
+      <p class="hint" data-en="Use the same names as in MAKE. Split the total across pockets until nothing is left over." data-th="ตั้งชื่อให้ตรงกับใน MAKE · แบ่งยอดรวมลงแต่ละกองจนไม่เหลือ">Use the same names as in MAKE.</p></div>
     <div class="sec"><h2><span class="h" data-en="Credit cards" data-th="บัตรเครดิต">Credit cards</span></h2><div id="setupCards" style="display:flex;flex-direction:column;gap:10px"></div>
       <button class="btn link" id="addSetupCard" data-en="+ Add a card" data-th="+ เพิ่มบัตร">Add a card</button>
       <p class="hint" data-en="Last bill already paid? Put 0 there. Spending since the last statement day goes in Not billed yet. No card? Tap × to remove it. You can change the days later in Settings." data-th="บิลล่าสุดจ่ายแล้ว ใส่ 0 ในช่องบิลที่สรุปแล้ว · ยอดที่รูดหลังวันสรุปยอดล่าสุด ใส่ในช่องยอดรูดที่ยังไม่ออกบิล · ถ้าไม่มีบัตร ให้กด × เพื่อลบ · เปลี่ยนวันได้ทีหลังในตั้งค่า">You can change statement days later.</p></div>
-    <div class="sec"><h2><span class="h" data-en="Monthly must-pay bills" data-th="รายจ่ายจำเป็นทุกเดือน">Monthly bills</span><span data-en="Per month" data-th="ต่อเดือน">Per month</span></h2><div class="ledger" id="setupBills"></div>
+    <h1 class="sub" data-en="This cycle's plan" data-th="แผนรอบนี้">This cycle's plan</h1>
+    <div class="ledger">
+      <div class="ln"><span class="k" data-en="Monthly salary" data-th="เงินเดือน">Monthly salary</span><input class="field" id="setupSalary" data-ph-en="Take-home pay" data-ph-th="ยอดที่ได้รับจริง" type="number" inputmode="decimal" step="0.01" min="0"></div>
+      <div class="ln"><span class="k" data-en="Cycle starts on day" data-th="รอบเริ่มวันที่">Cycle starts on day</span><input class="field mini" id="setupPayday" type="number" inputmode="numeric" min="1" max="31" value="28"></div>
+      <div class="ln"><span class="k" data-en="Salary arrives in" data-th="เงินเดือนเข้าบัญชี">Salary arrives in</span><select class="sel" id="setupSalaryTo"></select></div>
+      <div class="ln"><span class="k" data-en="Money for spending goes to" data-th="เงินที่เหลือไว้ใช้จ่ายโอนไป">Spending account</span><select class="sel" id="setupSpendTo"></select></div></div>
+    <div class="assign" id="setupAssign"></div>
+    <div class="sec"><h2><span class="h" data-en="Save to MAKE each cycle" data-th="โอนเก็บ MAKE ต้นรอบ">Save to MAKE each cycle</span><span class="num" id="setupPotSum"></span></h2><div class="ledger" id="setupPotPlan"></div></div>
+    <div class="sec"><h2><span class="h" data-en="Monthly must-pay bills" data-th="บิลประจำ">Monthly bills</span><span class="num" id="setupBillSum"></span></h2><div class="ledger" id="setupBills"></div>
       <button class="btn link" id="addSetupBill" data-en="+ Add a bill" data-th="+ เพิ่มรายการ">Add a bill</button>
       <p class="hint" data-en="Set aside each cycle until you record paying it. Leave blank if it does not apply." data-th="แอปกันเงินส่วนนี้ไว้ทุกรอบจนกว่าจะจดว่าจ่าย · ไม่มีเว้นว่างได้">Set aside each cycle until paid.</p></div>
+    <div class="sec"><h2><span class="h" data-en="Spending categories" data-th="หมวดใช้จ่าย">Spending categories</span><span class="num" id="setupCatSum"></span></h2><div class="ledger" id="setupCats"></div></div>
     <p class="msg err" id="setupMsg" role="alert" style="margin:0" ></p>
     <button class="btn" id="startBtn" data-en="Start" data-th="เริ่มใช้งาน">Start</button>
     <label class="btn ghost" style="text-align:center;cursor:pointer"><span data-en="Restore from a backup file" data-th="กู้คืนจากไฟล์สำรอง">Restore</span><input type="file" id="importFile2" accept="application/json,.json" hidden></label>
@@ -723,6 +799,7 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
     <div class="tabs2" id="sumMode"></div>
     <div class="ledger" style="padding:12px 14px"><div class="chart" id="chart"></div><p class="hint" id="budgetLine" style="font-size:13px;margin-top:6px"></p></div>
     <div class="stat3" id="stats"></div>
+    <p class="hint" id="sumDraw" hidden></p>
     <div class="sec"><h2><span class="h" data-en="By category" data-th="ตามหมวด">By category</span><span data-en="Spent / budget" data-th="ใช้ / งบ">Spent / budget</span></h2><div class="ledger" id="catList"></div></div>
     <div class="sec"><h2><span class="h" data-en="By place" data-th="ตามร้าน">By place</span><span data-en="Spent · visits" data-th="ยอด · ครั้ง">Spent · visits</span></h2><div class="ledger" id="placeList2"></div></div>
     <p class="hint" id="potSpend"></p>
@@ -731,7 +808,9 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
 
   <!-- SPLIT -->
   <section class="screen" id="s-plan" hidden>
-    <div class="top"><div><h1 data-en="Split salary" data-th="แบ่งเงินเดือน">Split salary</h1><div class="cycle" id="planSub"></div></div><button class="lang" data-back data-en="Back" data-th="กลับ">Back</button></div>
+    <div class="top"><div><h1 data-en="This cycle's plan" data-th="แผนรอบนี้">This cycle's plan</h1><div class="cycle" id="cpSub"></div></div><button class="lang" data-back data-en="Back" data-th="กลับ">Back</button></div>
+    <div class="cplan" id="cyclePlan"></div>
+    <div class="sec" style="margin-top:8px"><h2><span class="h" data-en="Move the salary" data-th="โอนเงินเดือน">Move the salary</span><span id="planSub"></span></h2></div>
     <div class="ledger" style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
       <div class="split" id="splitBar"></div>
       <div class="legend"><span><span data-en="To MAKE" data-th="เข้า MAKE">To MAKE</span> <b class="num" id="toMake"></b></span><span><span id="toSpendLbl">For spending</span> <b class="num" id="toScb"></b></span></div>
@@ -751,17 +830,22 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
     <div class="sec fold"><h2><span class="h" data-en="Credit cards" data-th="บัตรเครดิต">Credit cards</span></h2><div class="ledger" id="cardEd"></div>
       <p class="hint" data-en="New statement days start after the statement that is open now closes, so past bills never move." data-th="วันสรุปยอดใหม่มีผลหลังรอบที่เปิดอยู่ตอนนี้ปิด บิลเก่าไม่ขยับ">New days start from the next statement.</p></div>
     <div class="sec fold"><h2><span class="h" data-en="Monthly must-pay bills" data-th="รายจ่ายจำเป็นทุกเดือน">Monthly bills</span></h2><div class="ledger" id="billEd"></div>
+      <button class="btn link" data-goplan data-en="See bills in this cycle's plan ›" data-th="ดูบิลในแผนรอบนี้ ›">See bills in this cycle's plan ›</button>
       <p class="hint" data-en="Set aside from Safe to spend each cycle until you record paying it (pick the bill when you add the expense)." data-th="กันไว้จาก 'ใช้ได้จริง' ทุกรอบ จนกว่าจะจดว่าจ่าย (ตอนจดให้เลือกรายการนี้)">Set aside until paid.</p></div>
     <div class="sec fold"><h2><span class="h" data-en="Salary" data-th="เงินเดือน">Salary</span></h2>
       <div class="ledger"><div class="ln"><span class="k" data-en="Monthly salary" data-th="เงินเดือน">Monthly salary</span><input class="field" id="salaryIn" type="number" inputmode="decimal" step="0.01" min="0"></div>
-        <div class="ln" style="flex-wrap:wrap"><span class="k" data-en="Cycle starts on day" data-th="รอบเริ่มวันที่">Cycle starts on day</span><input class="field mini" id="paydayIn" type="number" inputmode="numeric" min="1" max="31"><p class="hint" id="paydayNote" style="flex-basis:100%;font-size:13px"></p></div>
+        <div class="ln" style="flex-wrap:wrap"><span class="k" data-en="Cycle starts on day" data-th="รอบเริ่มวันที่">Cycle starts on day</span><input class="field mini" id="paydayIn" type="number" inputmode="numeric" min="1" max="31"><p class="hint" id="paydayNote" style="flex-basis:100%;font-size:13px"></p>
+          <div class="pdstep" id="paydayStep" hidden style="flex-basis:100%"></div></div>
         <div class="ln"><span class="k" data-en="Salary arrives in" data-th="เงินเดือนเข้าบัญชี">Salary arrives in</span><select class="sel" id="salaryTo"></select></div>
         <div class="ln"><span class="k" data-en="Money for spending goes to" data-th="เงินที่เหลือไว้ใช้จ่ายโอนไป">Spending account</span><select class="sel" id="spendTo"></select></div></div></div>
     <div class="sec fold"><h2><span class="h" data-en="Pockets" data-th="กอง">Pockets</span></h2>
       <div class="ledger" id="potEd"></div>
+      <div class="ledger" style="margin-top:8px"><div class="ln"><span class="k"><span data-en="Cash flow floor" data-th="Cash flow ขั้นต่ำ">Cash flow floor</span><small data-en="Warn me when Cash flow drops below this. 0 = off." data-th="เตือนเมื่อ Cash flow ต่ำกว่านี้ · 0 = ไม่เตือน">Warn me below this. 0 = off.</small></span><input class="field" id="cfFloorIn" type="number" inputmode="decimal" step="0.01" min="0" aria-label="Cash flow floor"></div></div>
+      <button class="btn link" data-goplan data-en="Monthly amounts are in this cycle's plan ›" data-th="ยอดโอนต่อเดือนอยู่ในแผนรอบนี้ ›">Monthly amounts are in this cycle's plan ›</button>
       <p class="hint" data-en="A pocket can be archived only when it is empty. Renaming here does not rename it in MAKE." data-th="เก็บกองได้เมื่อยอดเป็นศูนย์ · เปลี่ยนชื่อที่นี่ไม่ได้เปลี่ยนใน MAKE">A pocket can be archived only when empty.</p></div>
     <div class="sec fold"><h2><span class="h" data-en="Categories" data-th="หมวด">Categories</span><span data-en="Budget / cycle" data-th="งบ / รอบ">Budget / cycle</span></h2>
       <div class="ledger" id="catEd"></div>
+      <button class="btn link" data-goplan data-en="Set budgets in this cycle's plan ›" data-th="ตั้งงบในแผนรอบนี้ ›">Set budgets in this cycle's plan ›</button>
       <p class="hint" data-en="Rename anytime: past entries follow the new name. Archive hides a category from new entries but keeps its history." data-th="เปลี่ยนชื่อได้ตลอด รายการเก่าเปลี่ยนตาม · เก็บ = ซ่อนจากการจดใหม่ แต่ประวัติยังอยู่">Rename anytime.</p></div>
     <div class="sec fold"><h2><span class="h" data-en="Starting balances" data-th="ยอดตอนเริ่มใช้">Starting balances</span></h2><div class="ledger" id="openEd"></div>
       <p class="hint" data-en="What each one held before your first entry. Fix a typo here, or fill in an account or card you added later. Entries you recorded stay as they are." data-th="ยอดที่มีอยู่ก่อนเริ่มจด แก้เลขที่กรอกผิด หรือใส่ยอดของบัญชี/บัตรที่เพิ่มทีหลังได้ที่นี่ รายการที่จดไว้ไม่เปลี่ยน">Starting balances.</p></div>
