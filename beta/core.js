@@ -111,6 +111,9 @@
   const isCard = a => a === 'CARD' || (typeof a === 'string' && a.startsWith('card:'));
   const isAsset = a => ASSETS.includes(a) || isAcct(a) || isPot(a);
   const isLiquid = a => LIQUID.includes(a) || isAcct(a);
+  // an investment account (Dime and the like) holds real money but is not money to spend
+  const isInvest = (state, a) => a === 'DIME' || (state.accounts || []).some(x => x.k === a && x.inv);
+  const isSpendable = (state, a) => isLiquid(a) && !isInvest(state, a);
   const sharesTotal = e => (e.shares || []).reduce((s, x) => s + x.amount, 0);
   const myShare = e => e.amount - sharesTotal(e);
 
@@ -293,6 +296,7 @@
         const legacy = !e.bill && /^plan:.*:mom-bills/.test(e.tag || '') && e.cat === bl.cat;
         if (e.bill === bl.id || legacy) paid += e.amount;
       }
+      if (bl.paidOut === cyc.start) paid = Math.max(paid, bl.amount); // paid outside the app this cycle; no money moves here
       const left = Math.max(0, bl.amount - paid);
       return { ...bl, paid, left, reserve: isPot(bl.from) ? 0 : left }; // a pocket already holds its own money
     });
@@ -310,6 +314,7 @@
       paid += e.amount;
       if (e.date >= cyc.start) thisCycle = true;
     }
+    if (bill.paidOut === cyc.start) thisCycle = true; // marked paid outside the app; its amount is already in paidBefore
     const perPay = bill.amount, left = Math.max(0, L.total - paid), nLeft = Math.ceil(left / perPay);
     const first = (thisCycle ? addDays(cyc.end, 1) : cyc.end).slice(0, 7);
     return { total: L.total, paid, left, perPay, nPaid: Math.floor(paid / perPay), nTotal: Math.ceil(L.total / perPay), nLeft, endYm: nLeft ? addMonths(first, nLeft - 1) : null };
@@ -319,7 +324,7 @@
   function safeToSpend(state, asOf) {
     const b = balances(state, { asOf });
     let liquid = 0;
-    for (const [k, v] of Object.entries(b)) if (isLiquid(k)) liquid += v;
+    for (const [k, v] of Object.entries(b)) if (isSpendable(state, k)) liquid += v;
     let card = 0, cardBilled = 0;
     for (const k of cardList(state)) {
       card += Math.max(0, b[k] || 0);
@@ -464,6 +469,6 @@
 
   root.LedgerCore = { sweep, cycleStatus, planFor, extraIncome, leftToAssign, changePayday, potPlan, addMonths, toSatang, baht, isDate, addDays, daysBetween, cycleOf, statementOf, cardStatementOf, changeCardDates, cardList, billStatus, loanStatus, cardOpening, setCardOpening, cardStart,
     balances, validate, statements, spending, safeToSpend,
-    personHistory, shareStatus, myShare, sharesTotal, isPot, isPerson, isAsset, isAcct, isCard, isLiquid, ASSETS, LIQUID };
+    personHistory, shareStatus, myShare, sharesTotal, isPot, isPerson, isAsset, isAcct, isCard, isLiquid, isInvest, isSpendable, ASSETS, LIQUID };
   if (typeof module !== 'undefined') module.exports = root.LedgerCore;
 })(typeof window !== 'undefined' ? window : globalThis);

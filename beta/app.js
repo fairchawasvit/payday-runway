@@ -271,7 +271,7 @@ function home() {
   const b = r.balances, allSt = C.cardList(ST).flatMap(k => C.statements(ST, ST.today, k));
   const row = (k, v, cls = '', sub = '') => `<div class="ln"><span class="k">${k}${sub ? `<small>${sub}</small>` : ''}</span><span class="num ${cls}">${v}</span></div>`;
   const openSt = allSt.filter(s => !s.closed && s.remaining > 0).sort((a, z) => a.close.localeCompare(z.close));
-  const accts = [...new Set([ST.spendTo, ...liveAccts(), ...Object.keys(b).filter(C.isLiquid)])].filter(k => k === ST.spendTo || b[k]);
+  const accts = [...new Set([ST.spendTo, ...liveAccts(), ...Object.keys(b).filter(C.isLiquid)])].filter(k => !C.isInvest(ST, k)).filter(k => k === ST.spendTo || b[k]);
   const billsLeft = r.bills.filter(x => x.reserve > 0);
   $('calc').innerHTML =
     accts.map(k => row(esc(acct(k)), fm(b[k] || 0))).join('') +
@@ -302,7 +302,10 @@ function home() {
   r.bills.filter(x => x.left > 0).forEach(x => T.push({ id: 'bill', ico: 'i-bolt',
     t: tl(`${billName(x)} not paid yet this cycle`, `${billName(x)} ยังไม่จ่ายรอบนี้`),
     sub: x.reserve ? tl(`฿${fm(x.left)} set aside`, `กันเงินไว้แล้ว ฿${fm(x.left)}`) : tl(`฿${fm(x.left)} from its pocket`, `฿${fm(x.left)} จ่ายจากกอง`), btn: tl('Record', 'จด'),
-    fn: () => { F = { ...blankForm(), type: 'expense', bill: x.id, cat: x.cat, amount: (x.left / 100).toFixed(2), ...(C.isPot(x.from) ? { from: 'POT', pot: x.from.slice(4) } : { from: x.from }) }; go('add'); } }));
+    fn: () => { F = { ...blankForm(), type: 'expense', bill: x.id, cat: x.cat, amount: (x.left / 100).toFixed(2), ...(C.isPot(x.from) ? { from: 'POT', pot: x.from.slice(4) } : { from: x.from }) }; go('add'); },
+    btn2: tl('Paid already', 'จ่ายแล้ว'),
+    fn2: () => { const bl = ST.bills.find(b => b.id === x.id); if (!bl) return; bl.paidOut = r.cycle.start;
+      if (bl.loan) { bl.paidOutAmt = x.left; bl.loan.paidBefore = (bl.loan.paidBefore || 0) + x.left; } persist(); toast(tl('Marked paid. No money moved.', 'ทำเครื่องหมายจ่ายแล้ว ไม่หักเงินในบัญชี')); home(); } }));
   liveAccts().filter(k => (b[k] || 0) < 0).forEach(k => T.unshift({ id: 'neg', cls: 'danger', ico: 'i-bell',
     t: tl(`${acct(k)} is −฿${fm(-b[k])}: the app no longer matches your bank`, `${acct(k)} ติดลบ −฿${fm(-b[k])} · ตัวเลขในแอปไม่ตรงกับธนาคาร`),
     sub: tl('A starting balance is off, or an income/transfer is missing', 'ยอดตอนเริ่มใช้ไม่ตรง หรือลืมจดเงินเข้า/การโอน'), btn: tl('Fix', 'แก้ยอด'),
@@ -323,11 +326,12 @@ function home() {
   T.sort((x, y) => (y.cls === 'danger') - (x.cls === 'danger')); // a balance that cannot be right always comes first
   $('todoN').textContent = T.length ? String(T.length) : '';
   const SHOW = TODO_ALL ? T.length : 2;
-  $('todo').innerHTML = T.length ? T.map((x, i) => `<div class="todo ${x.cls || ''}" data-todo="${x.id}"${i >= SHOW ? ' hidden' : ''}><span class="ico"><svg class="i"><use href="#${x.ico}"/></svg></span><div class="txt"><span>${esc(x.t)}</span><small>${esc(x.sub)}</small></div><button data-i="${i}">${esc(x.btn)}</button></div>`).join('')
+  $('todo').innerHTML = T.length ? T.map((x, i) => `<div class="todo ${x.cls || ''}" data-todo="${x.id}"${i >= SHOW ? ' hidden' : ''}><span class="ico"><svg class="i"><use href="#${x.ico}"/></svg></span><div class="txt"><span>${esc(x.t)}</span><small>${esc(x.sub)}</small></div>${x.btn2 ? `<button class="ghost" data-j="${i}">${esc(x.btn2)}</button>` : ''}<button data-i="${i}">${esc(x.btn)}</button></div>`).join('')
     + (T.length > SHOW ? `<button type="button" class="btn link" id="todoMore">${tl(`Show ${T.length - SHOW} more`, `ดูอีก ${T.length - SHOW} เรื่อง`)}</button>` : '')
     : `<p class="none">${tl('Nothing to do. All caught up.', 'ไม่มีอะไรค้าง เรียบร้อยดี')}</p>`;
   if ($('todoMore')) $('todoMore').onclick = () => { TODO_ALL = true; home(); };
   $('todo').querySelectorAll('button[data-i]').forEach(btn => btn.onclick = () => T[+btn.dataset.i].fn());
+  $('todo').querySelectorAll('button[data-j]').forEach(btn => btn.onclick = () => T[+btn.dataset.j].fn2());
 
   // wallet strip
   const strip = [...liveAccts().map(k => [(b[k] || 0) < 0 ? 'negk' : '', acct(k), (b[k] < 0 ? '−' : '') + fm(Math.abs(b[k] || 0))]), ...liveCards().map(k => ['cardk', acct(k), (cardOwed(k) ? '−' : '') + fm(cardOwed(k))]),
@@ -1193,10 +1197,14 @@ function renderMoneySettings(bal) {
   const saved = m => { persist(); toast(m || tl('Saved', 'บันทึกแล้ว')); renderSet(); };
   // accounts
   $('acctEd').innerHTML = ST.accounts.map((a, i) => `<div class="ed ${a.arch ? 'arch' : ''}" style="flex-wrap:wrap"><input class="name" id="an${i}" value="${esc(acct(a.k))}" ${a.arch ? 'disabled' : ''} aria-label="${tl('Account name', 'ชื่อบัญชี')}">
-    <span class="num" style="font-size:13px;color:var(--ink-2)">${fm(bal[a.k] || 0)}</span><button class="act" id="aa${i}">${a.arch ? tl('Restore', 'คืน') : tl('Remove', 'ลบ')}</button><span class="warn" id="aw${i}" hidden></span></div>`).join('') +
+    <span class="num" style="font-size:13px;color:var(--ink-2)">${fm(bal[a.k] || 0)}</span><label style="font-size:13px;display:flex;gap:4px;align-items:center"><input type="checkbox" id="ai${i}" ${a.inv || a.k === 'DIME' ? 'checked' : ''} ${a.arch || a.k === 'DIME' ? 'disabled' : ''}>${tl('Investment', 'ลงทุน')}</label><button class="act" id="aa${i}">${a.arch ? tl('Restore', 'คืน') : tl('Remove', 'ลบ')}</button><span class="warn" id="aw${i}" hidden></span></div>`).join('') +
     `<div class="addrow"><input id="newAcct" placeholder="${tl('New account', 'บัญชีใหม่')}" aria-label="${tl('New account', 'บัญชีใหม่')}"><button id="addAcct">${tl('Add', 'เพิ่ม')}</button></div>`;
   ST.accounts.forEach((a, i) => {
     const n = $('an' + i); if (n) n.onchange = ev => { const v = ev.target.value.trim(); if (!v) { ev.target.value = acct(a.k); return; } a.n = v; saved(tl('Renamed. Past entries follow.', 'เปลี่ยนชื่อแล้ว รายการเก่าเปลี่ยนตาม')); };
+    const iv = $('ai' + i); if (iv) iv.onchange = ev => {
+      if (ev.target.checked && (a.k === ST.salaryTo || a.k === ST.spendTo)) { ev.target.checked = false; return toast(tl('Salary or spending goes here', 'บัญชีนี้รับเงินเดือนหรือใช้จ่ายอยู่')); }
+      a.inv = ev.target.checked || undefined; saved(a.inv ? tl('Investment account. Not counted as money to spend.', 'บัญชีลงทุน ไม่นับเป็นเงินใช้ได้') : tl('Counted as money to spend', 'นับเป็นเงินใช้ได้'));
+    };
     $('aa' + i).onclick = () => {
       const w = $('aw' + i), have = bal[a.k] || 0, show = m => { w.textContent = m; w.hidden = false; };
       if (!a.arch) {
@@ -1245,10 +1253,15 @@ function renderMoneySettings(bal) {
   const loanVal = v => (v ? String(v / 100) : '');
   $('billEd').innerHTML = ST.bills.map((b, i) => `<div class="ed" style="flex-wrap:wrap;row-gap:6px"><input class="name" id="bn${i}" value="${esc(billName(b))}" aria-label="${tl('Bill name', 'ชื่อรายการ')}">
     <input class="field" id="ba${i}" type="number" min="0" step="0.01" value="${b.amount / 100}" aria-label="${tl('Amount', 'ยอด')}"><button class="act" id="bx${i}">${tl('Remove', 'ลบ')}</button>
+    ${b.paidOut === C.cycleOf(ST.today, ST.payday).start ? `<span class="lnsub" style="flex-basis:100%">${tl('Marked paid outside the app this cycle', 'ทำเครื่องหมายจ่ายแล้วนอกแอป รอบนี้')} <button class="act" id="bu${i}">${tl('Undo', 'ยกเลิก')}</button></span>` : ''}
     <span class="lnsub" style="flex-basis:100%">${tl('Paid from', 'จ่ายจาก')} <select class="sel" id="bf${i}">${opts(billSources(b.from), b.from)}</select></span>
     ${loanHTML(i, loanOpen(b), `id="bl${i}"`, `<input class="field" id="bt${i}" type="number" inputmode="decimal" min="0" step="0.01" value="${loanVal(b.loan && b.loan.total)}">`, `<input class="field" id="bp${i}" type="number" inputmode="decimal" min="0" step="0.01" value="${loanVal(b.loan && b.loan.paidBefore)}">`)}</div>`).join('') +
     `<div class="addrow"><input id="newBill" placeholder="${tl('New bill, e.g. Rent', 'รายการใหม่ เช่น ค่าหอ')}" aria-label="${tl('New bill', 'รายการใหม่')}"><button id="addBill">${tl('Add', 'เพิ่ม')}</button></div>`;
   ST.bills.forEach((b, i) => {
+    const u = $('bu' + i); if (u) u.onclick = () => {
+      if (b.loan && b.paidOutAmt) b.loan.paidBefore = Math.max(0, (b.loan.paidBefore || 0) - b.paidOutAmt);
+      delete b.paidOut; delete b.paidOutAmt; saved(tl('Undone. The bill is unpaid again.', 'ยกเลิกแล้ว บิลกลับเป็นยังไม่จ่าย'));
+    };
     $('bn' + i).onchange = ev => { const v = ev.target.value.trim(); if (!v) { ev.target.value = billName(b); return; } b.n = v; saved(); };
     $('ba' + i).onchange = ev => { const v = C.toSatang(ev.target.value); if (!(v > 0)) { toast(tl('Enter an amount above 0', 'ใส่ยอดมากกว่า 0')); renderSet(); return; } b.amount = v; saved(); };
     $('bf' + i).onchange = ev => { b.from = ev.target.value; saved(); };
@@ -1390,7 +1403,7 @@ function renderSetup() {
   const sel = (list, i, f, keys, cur, names) => `<select class="sel" data-su="${list}.${i}.${f}">${keys.map(k => `<option value="${esc(k)}" ${k === cur ? 'selected' : ''}>${esc(names(k))}</option>`).join('')}</select>`;
   const aName = k => { const a = SU.accts.find(x => x.k === k); return !a ? acct(k) : C.isAcct(k) && !a.n.trim() ? tl('New account (no name yet)', 'บัญชีใหม่ (ยังไม่ตั้งชื่อ)') : suName(a); };
   const cardish = n => /\b(ktc|visa|master|amex|jcb|uob|citi|card)\b|บัตร|เครดิต|first ?choice/i.test(n || '');
-  $('setupAccts').innerHTML = SU.accts.map((a, i) => `<div class="ln" style="gap:6px;flex-wrap:wrap">${txt('accts', i, 'n', a.n, a.k === 'CASH' ? tl('Cash in wallet', 'เงินสดในกระเป๋า') : tl('Account name', 'ชื่อบัญชี'))}${num('accts', i, 'bal', a.bal, '0', '" style="width:96px')}${del('accts', i)}
+  $('setupAccts').innerHTML = SU.accts.map((a, i) => `<div class="ln" style="gap:6px;flex-wrap:wrap">${txt('accts', i, 'n', a.n, a.k === 'CASH' ? tl('Cash in wallet', 'เงินสดในกระเป๋า') : tl('Account name', 'ชื่อบัญชี'))}${num('accts', i, 'bal', a.bal, '0', '" style="width:96px')}<label style="font-size:13px;display:flex;gap:4px;align-items:center"><input type="checkbox" data-su="accts.${i}.inv" ${a.inv ? 'checked' : ''}>${tl('Investment', 'ลงทุน')}</label>${del('accts', i)}
     ${cardish(a.n) ? `<span class="warnline">${tl('Is this a credit card? Put cards under Credit cards below, or money you owe will count as money you have.', 'นี่คือบัตรเครดิตหรือเปล่า? ถ้าใช่ ให้ใส่ในส่วนบัตรเครดิตด้านล่าง ไม่งั้นแอปจะนับยอดค้างบัตรเป็นเงินที่มี')}</span>` : ''}</div>`).join('');
   $('setupSalaryTo').innerHTML = acctKeys.map(k => `<option value="${esc(k)}" ${k === SU.salaryTo ? 'selected' : ''}>${esc(aName(k))}</option>`).join('');
   $('setupSpendTo').innerHTML = acctKeys.map(k => `<option value="${esc(k)}" ${k === SU.spendTo ? 'selected' : ''}>${esc(aName(k))}</option>`).join('');
@@ -1518,7 +1531,7 @@ $('startBtn') && ($('startBtn').onclick = () => {
   if (bills.some(b => ![...acctKeys, ...cardKeys, ...potKeys].includes(b.from))) return msg(tl('A bill is paid from something that was removed. Pick again.', 'มีรายการที่เลือกที่จ่ายซึ่งถูกลบไปแล้ว เลือกใหม่'));
   ST.pots = pots.map(p => ({ id: p.id || 'p' + Date.now() + Math.random().toString(36).slice(2, 6), n: p.name, th: p.name, ...(p.monS ? { monthly: p.monS } : {}), ...(p.goalS ? { goal: p.goalS } : {}), ...(p.by ? { by: p.by } : {}), ...(p.repeat ? { repeat: true } : {}) }));
   // a built-in account left unnamed keeps following the language (Cash / เงินสด)
-  ST.accounts = SU.accts.map(a => ({ k: a.k, n: a.n.trim() }));
+  ST.accounts = SU.accts.map(a => ({ k: a.k, n: a.n.trim(), ...(a.inv ? { inv: true } : {}) }));
   ST.cards = cards.map(c => ({ k: c.k, n: c.n, from: c.from, start: ST.today, sched: [{ since: '0000-01-01', close: c.close, due: c.due }] }));
   ST.salaryTo = SU.salaryTo; ST.spendTo = SU.spendTo; ST.salary = salary; ST.helpRate = 0;
   ST.bills = bills.map((b, i) => ({ id: 'b' + i, n: b.n, amount: b.amountS, from: b.from, cat: catFor(b.n), ...(b.ltS ? { loan: { total: b.ltS, paidBefore: b.lbS } } : {}) }));
