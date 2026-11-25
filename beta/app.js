@@ -958,10 +958,10 @@ function potGoalHTML(p, i, have) {
   const per = p.monthly != null ? p.monthly : p.fixed;
   return `<div class="pgoal">
     <label>${tl('Goal ฿', 'เป้า ฿')}<input class="field" id="pg${i}" type="number" inputmode="decimal" min="0" step="0.01" value="${p.goal ? p.goal / 100 : ''}" placeholder="${tl('none', 'ไม่มี')}"></label>
-    <label>${tl('Reach by', 'ครบภายใน')}<input class="field" id="pb${i}" type="month" value="${esc(p.by || '')}">${p.by ? `<button type="button" class="btn link" style="padding:4px 0;font-size:13px" id="pbx${i}">${tl('Clear date', 'ล้างวันที่')}</button>` : ''}</label>
+    <label>${tl('Reach by', 'ครบภายใน')}<input class="field" id="pb${i}" type="month" value="${esc(p.by || '')}"></label>
     <label>${tl('Per month ฿', 'โอน/เดือน ฿')}<input class="field" id="pm${i}" type="number" inputmode="decimal" min="0" step="0.01" value="${per ? per / 100 : ''}" placeholder="${tl('auto', 'ให้แอปคิด')}"></label>
     <label class="rep"><input type="checkbox" id="pr${i}" ${p.repeat ? 'checked' : ''}> ${tl('Same goal every year', 'เป้าวนทุกปี')}</label>
-    <span class="pline" style="${C.potPlan(p, have, nextPay()).status === 'late' ? 'color:var(--debit)' : ''}">${esc(potLine(p, have, nextPay()))}</span></div>`;
+    <span class="pline" style="${C.potPlan(p, have, nextPay()).status === 'late' ? 'color:var(--debit)' : ''}">${esc(potLine(p, have, nextPay()))}</span>${p.by ? `<span style="grid-column:1/-1"><button type="button" class="btn link" style="padding:4px 0;font-size:13px" id="pbx${i}">${tl('Clear date', 'ล้างวันที่')}</button></span>` : ''}</div>`;
 }
 const monthsLeft = (by, from) => { const [y, m] = by.split('-').map(Number), [fy, fmn] = from.split('-').map(Number); return Math.max(1, (y - fy) * 12 + (m - fmn) + 1); };
 // a one-off amount for a single payday (set on the split screen) beats the plan; the plan itself is unchanged
@@ -1131,7 +1131,7 @@ function renderSet() {
     money('pg', 'goal'); money('pm', 'monthly');
     $('pb' + i).onchange = ev => { const v = ev.target.value; if (v) p.by = v; else delete p.by; persist(); }; // no redraw while the iOS wheel is open
     $('pb' + i).onblur = () => renderSet();
-    if ($('pbx' + i)) $('pbx' + i).onclick = () => { delete p.by; persist(); renderSet(); };
+    if ($('pbx' + i)) $('pbx' + i).onpointerdown = ev => { ev.preventDefault(); delete p.by; persist(); renderSet(); };
     $('pr' + i).onchange = ev => { if (ev.target.checked) p.repeat = true; else delete p.repeat; persist(); renderSet(); };
   });
   $('addPot').onclick = () => { const v = $('newPot').value.trim(); if (!v) { $('newPot').focus(); return; }
@@ -1416,7 +1416,7 @@ function renderSetup() {
     <div class="pgoal" style="padding-left:0"><span class="pline" data-pst="${i}">${esc(setupPotStatus(p))}</span>
       <button type="button" class="btn link" style="grid-column:1/-1;justify-self:start;padding:6px 0" data-open="${i}" aria-expanded="${open}">${open ? tl('Hide goal', 'ซ่อนเป้า') : tl('Goal', 'เป้า')}</button>${open ? `
       <label>${tl('Goal ฿', 'เป้า ฿')}<input class="field" type="number" inputmode="decimal" step="0.01" min="0" data-su="pots.${i}.goal" data-redraw="1" value="${esc(p.goal)}" placeholder="${tl('none', 'ไม่มี')}"></label>
-      <label>${tl('Reach by', 'ครบภายใน')}<input class="field" type="month" data-su="pots.${i}.by" data-redraw="1" value="${esc(p.by)}">${p.by ? `<button type="button" class="btn link" style="padding:4px 0;font-size:13px" data-clearby="${i}">${tl('Clear date', 'ล้างวันที่')}</button>` : ''}</label>
+      <label>${tl('Reach by', 'ครบภายใน')}<input class="field" type="month" data-su="pots.${i}.by" data-redraw="1" value="${esc(p.by)}"></label>${p.by ? `<span style="grid-column:1/-1"><button type="button" class="btn link" style="padding:4px 0;font-size:13px" data-clearby="${i}">${tl('Clear date', 'ล้างวันที่')}</button></span>` : ''}
       <label class="rep"><input type="checkbox" data-su="pots.${i}.repeat" data-redraw="1" ${p.repeat ? 'checked' : ''}> ${tl('Same goal every year', 'เป้าวนทุกปี')}</label>` : ''}
     </div></div>`; }).join('') || `<div class="ln"><span class="k">${tl('No pockets yet', 'ยังไม่มีกอง')}</span></div>`;
   $('setupCats').innerHTML = SU.cats.map((c, i) => `<div class="ln" style="gap:6px">${txt('cats', i, 'name', c.name, tl('Category name', 'ชื่อหมวด'))}${num('cats', i, 'b', c.b, '0', '" style="width:96px')}${del('cats', i)}</div>`).join('');
@@ -1439,7 +1439,7 @@ function renderSetup() {
     <span class="bfrom">${tl('from', 'จ่ายจาก')} ${sel('bills', i, 'from', billFrom, b.from, bfName)}</span>
     ${loanHTML(i, sLoanOpen(b), `data-lopen="${i}"`, num('bills', i, 'ltotal', b.ltotal || '', '0'), num('bills', i, 'lbefore', b.lbefore || '', '0'))}</div>`).join('');
   document.querySelectorAll('#s-setup [data-lopen]').forEach(x => x.onclick = () => { readSetup(); const b = SU.bills[+x.dataset.lopen]; b.lopen = !sLoanOpen(b); renderSetup(); });
-  document.querySelectorAll('#s-setup [data-clearby]').forEach(b => b.onclick = () => { readSetup(); SU.pots[+b.dataset.clearby].by = ''; renderSetup(); });
+  document.querySelectorAll('#s-setup [data-clearby]').forEach(b => b.onpointerdown = ev => { ev.preventDefault(); readSetup(); SU.pots[+b.dataset.clearby].by = ''; renderSetup(); });
   document.querySelectorAll('#s-setup [data-open]').forEach(b => b.onclick = () => { readSetup(); const q = SU.pots[+b.dataset.open]; q.open = !potOpen(q); renderSetup(); });
   // wiring: any edit is read back into SU; a few need a redraw (names feed the dropdowns, days feed the card labels)
   const isPicker = i => i.type === 'month' || i.type === 'date';
