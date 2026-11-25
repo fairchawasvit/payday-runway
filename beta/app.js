@@ -1321,6 +1321,7 @@ function renderSetup() {
     ${cardish(a.n) ? `<span class="warnline">${tl('Is this a credit card? Put cards under Credit cards below, or money you owe will count as money you have.', 'นี่คือบัตรเครดิตหรือเปล่า? ถ้าใช่ ให้ใส่ในส่วนบัตรเครดิตด้านล่าง ไม่งั้นแอปจะนับยอดค้างบัตรเป็นเงินที่มี')}</span>` : ''}</div>`).join('');
   $('setupSalaryTo').innerHTML = acctKeys.map(k => `<option value="${esc(k)}" ${k === SU.salaryTo ? 'selected' : ''}>${esc(aName(k))}</option>`).join('');
   $('setupSpendTo').innerHTML = acctKeys.map(k => `<option value="${esc(k)}" ${k === SU.spendTo ? 'selected' : ''}>${esc(aName(k))}</option>`).join('');
+  if (SU.salaryTo !== SU.spendTo) $('setupMulti').open = true; // two accounts in use: keep the choice visible
   $('setupSalary').value = SU.salary; $('setupPayday').value = SU.payday; $('setupMake').value = SU.make;
   $('setupPotPlan').innerHTML = SU.pots.map((p, i) => { if (p.id === 'cashflow') return '';
     const open = potOpen(p), nm = esc(p.name.trim() || tl('Pocket (no name yet)', 'กอง (ยังไม่ตั้งชื่อ)'));
