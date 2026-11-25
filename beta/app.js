@@ -1090,6 +1090,9 @@ function applyLook() {
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyLook);
 function renderSet() {
+  // the running version = the cache this copy was loaded from (old caches are deleted when a new version takes over)
+  if (window.caches) caches.keys().then(ks => { const v = ks.filter(k => /\d/.test(k) && k.startsWith('beta-') === location.pathname.includes('/beta/')).sort((a, b) => (+b.match(/\d+$/) || 0) - (+a.match(/\d+$/) || 0))[0]; const el = $('verInfo');
+    if (v && el) { el.textContent = tl('Version ', 'เวอร์ชัน ') + v.replace(/^beta-runway-/, 'beta ').replace(/^payday-runway-?/, ''); el.hidden = false; } }).catch(() => {});
   $('swatches').innerHTML = ACCENTS.map(x => `<button class="sw" style="--c:${isDark() ? x.d : x.l}" aria-pressed="${PREF.accent === x.id}" aria-label="${x.id}" data-a="${x.id}"></button>`).join('') +
     `<label class="sw custom" aria-pressed="${PREF.accent === 'custom'}" title="${tl('Custom', 'กำหนดเอง')}"><input type="color" id="customColor" value="${PREF.custom || '#c9760a'}" aria-label="${tl('Custom colour', 'สีกำหนดเอง')}"></label>`;
   $('swatches').querySelectorAll('[data-a]').forEach(b => b.onclick = () => { PREF.accent = b.dataset.a; savePref(); applyLook(); renderSet(); });
