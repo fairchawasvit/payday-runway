@@ -302,6 +302,10 @@ nav.bar .add svg{width:24px;height:24px;stroke-width:2.2}
 .toast{display:flex;gap:12px;align-items:center}
 .toast.upd{bottom:auto;top:calc(12px + env(safe-area-inset-top,0px))}
 #setupMsg:empty{display:none}
+.setupstep{display:flex;flex-direction:column;gap:inherit}
+.stepno{margin:0 0 2px;font-size:12px;font-weight:600;color:var(--ink-3)}
+.multi summary{cursor:pointer;list-style:none;font-size:13px;font-weight:600;color:var(--ink-2);min-height:44px;display:flex;align-items:center;padding:0 2px}
+.multi summary::after{content:"›";margin-left:auto;color:var(--ink-3);transition:transform .2s}.multi[open] summary::after{transform:rotate(90deg)}
 .toast button{border:0;background:transparent;color:var(--marigold);font-weight:700;padding:0}
 /* v3 layout */
 .runway details.why{border-top:1px solid var(--line);padding-top:10px}
@@ -702,7 +706,8 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
 
   <!-- FIRST-RUN SETUP -->
   <section class="screen" id="s-setup" hidden>
-    <div class="top"><div><h1 data-en="Where your money is today" data-th="เงินอยู่ที่ไหนวันนี้">Where your money is today</h1><div class="cycle" data-en="Copy today's balances from your bank apps. Leave blank for 0." data-th="ดูยอดวันนี้จากแอปธนาคาร ช่องที่ไม่มีเว้นว่างได้">Copy today's balances.</div></div><button class="lang" id="lang2" aria-label="Switch language">ไทย / EN</button></div>
+    <div class="top"><div><p class="stepno" id="setupStepLbl"></p><h1 id="setupTitle">Where your money is today</h1><div class="cycle" id="setupLead"></div></div><button class="lang" id="lang2" aria-label="Switch language">ไทย / EN</button></div>
+    <div class="setupstep" id="setupStep1">
     <div class="sec"><h2><span class="h" data-en="Accounts" data-th="บัญชี">Accounts</span><span data-en="Balance now" data-th="ยอดตอนนี้">Balance now</span></h2><div class="ledger" id="setupAccts"></div>
       <button class="btn link" id="addSetupAcct" data-en="+ Add an account" data-th="+ เพิ่มบัญชี">Add an account</button></div>
     <div class="sec"><h2><span class="h" data-en="MAKE pockets" data-th="กองใน MAKE">MAKE pockets</span></h2>
@@ -714,22 +719,28 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
     <div class="sec"><h2><span class="h" data-en="Credit cards" data-th="บัตรเครดิต">Credit cards</span></h2><div id="setupCards" style="display:flex;flex-direction:column;gap:10px"></div>
       <button class="btn link" id="addSetupCard" data-en="+ Add a card" data-th="+ เพิ่มบัตร">Add a card</button>
       <p class="hint" data-en="Last bill already paid? Put 0 there. Spending since the last statement day goes in Not billed yet. No card? Tap × to remove it. You can change the days later in Settings." data-th="บิลล่าสุดจ่ายแล้ว ใส่ 0 ในช่องบิลที่สรุปแล้ว · ยอดที่รูดหลังวันสรุปยอดล่าสุด ใส่ในช่องยอดรูดที่ยังไม่ออกบิล · ถ้าไม่มีบัตร ให้กด × เพื่อลบ · เปลี่ยนวันได้ทีหลังในตั้งค่า">You can change statement days later.</p></div>
-    <h1 class="sub" data-en="This cycle's plan" data-th="แผนรอบนี้">This cycle's plan</h1>
+    </div>
+    <div class="setupstep" id="setupStep2" hidden>
     <div class="ledger">
       <div class="ln"><span class="k" data-en="Monthly salary" data-th="เงินเดือน">Monthly salary</span><input class="field" id="setupSalary" data-ph-en="Take-home pay" data-ph-th="ยอดที่ได้รับจริง" type="number" inputmode="decimal" step="0.01" min="0"></div>
       <div class="ln"><span class="k" data-en="Cycle starts on day" data-th="รอบเริ่มวันที่">Cycle starts on day</span><input class="field mini" id="setupPayday" type="number" inputmode="numeric" min="1" max="31" value="28"></div>
-      <div class="ln"><span class="k" data-en="Salary arrives in" data-th="เงินเดือนเข้าบัญชี">Salary arrives in</span><select class="sel" id="setupSalaryTo"></select></div>
-      <div class="ln"><span class="k" data-en="Money for spending goes to" data-th="เงินที่เหลือไว้ใช้จ่ายโอนไป">Spending account</span><select class="sel" id="setupSpendTo"></select></div></div>
+      <details class="multi" id="setupMulti"><summary data-en="More than one account? Set up more" data-th="ใช้หลายบัญชี? ตั้งค่าเพิ่ม">More than one account? Set up more</summary>
+        <div class="ln"><span class="k" data-en="Salary arrives in" data-th="เงินเดือนเข้าบัญชี">Salary arrives in</span><select class="sel" id="setupSalaryTo"></select></div>
+        <div class="ln"><span class="k" data-en="Money for spending goes to" data-th="เงินที่เหลือไว้ใช้จ่ายโอนไป">Spending account</span><select class="sel" id="setupSpendTo"></select></div>
+      </details></div>
     <div class="assign" id="setupAssign"></div>
     <div class="sec"><h2><span class="h" data-en="Save to MAKE each cycle" data-th="โอนเก็บ MAKE ต้นรอบ">Save to MAKE each cycle</span><span class="num" id="setupPotSum"></span></h2><div class="ledger" id="setupPotPlan"></div></div>
     <div class="sec"><h2><span class="h" data-en="Monthly must-pay bills" data-th="บิลประจำ">Monthly bills</span><span class="num" id="setupBillSum"></span></h2><div class="ledger" id="setupBills"></div>
-      <button class="btn link" id="addSetupBill" data-en="+ Add a bill" data-th="+ เพิ่มรายการ">Add a bill</button>
+      <button class="btn link" id="addSetupBill" data-en="+ Add a bill" data-th="+ เพิ่มบิล">Add a bill</button>
       <p class="hint" data-en="Set aside each cycle until you record paying it. Leave blank if it does not apply." data-th="แอปกันเงินส่วนนี้ไว้ทุกรอบจนกว่าจะจดว่าจ่าย · ไม่มีเว้นว่างได้">Set aside each cycle until paid.</p></div>
     <div class="sec"><h2><span class="h" data-en="Spending categories" data-th="หมวดใช้จ่าย">Spending categories</span><span class="num" id="setupCatSum"></span></h2><div class="ledger" id="setupCats"></div></div>
-    <p class="msg err" id="setupMsg" role="alert" style="margin:0" ></p>
-    <button class="btn" id="startBtn" data-en="Start" data-th="เริ่มใช้งาน">Start</button>
-    <label class="btn ghost" style="text-align:center;cursor:pointer"><span data-en="Restore from a backup file" data-th="กู้คืนจากไฟล์สำรอง">Restore</span><input type="file" id="importFile2" accept="application/json,.json" hidden></label>
-    <button class="btn ghost" id="sampleBtn" data-en="Just look around with sample data" data-th="ลองดูด้วยข้อมูลตัวอย่างก่อน">Sample data</button>
+    </div>
+    <p class="msg err" id="setupMsg" role="alert" style="margin:0"></p>
+    <div class="setupstep" id="setupNav1"><button class="btn" id="nextBtn" data-en="Next" data-th="ถัดไป">Next</button>
+        <label class="btn ghost" style="text-align:center;cursor:pointer"><span data-en="Restore from a backup file" data-th="กู้คืนจากไฟล์สำรอง">Restore</span><input type="file" id="importFile2" accept="application/json,.json" hidden></label>
+        <button class="btn ghost" id="sampleBtn" data-en="Just look around with sample data" data-th="ลองดูด้วยข้อมูลตัวอย่างก่อน">Sample data</button></div>
+    <div class="setupstep" id="setupNav2" hidden><button class="btn" id="startBtn" data-en="Start" data-th="เริ่มใช้งาน">Start</button>
+      <button class="btn ghost" id="backBtn" data-en="Back" data-th="ย้อนกลับ">Back</button></div>
   </section>
 
   <!-- ADD / EDIT -->

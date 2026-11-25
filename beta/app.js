@@ -93,9 +93,8 @@ function emptyState() {
     schema: SCHEMA, setupDone: false, nextId: 1, salary: 0, opening: {}, openingStatements: {},
     pots: [{ id: 'cashflow', n: 'Cash flow', th: 'Cash flow' }, { id: 'emerg', n: 'Emergency fund', th: 'เงินฉุกเฉิน' }],
     cats: [{ id: 'food', en: 'Food', th: 'กิน', b: 0 }, { id: 'fuel', en: 'Fuel', th: 'น้ำมัน', b: 0 }, { id: 'goods', en: 'Goods', th: 'ของใช้', b: 0 },
-      { id: 'travel', en: 'Travel', th: 'เที่ยว', b: 0 }, { id: 'personal', en: 'Personal', th: 'ส่วนตัว', b: 0 }, { id: 'rent', en: 'Rent', th: 'ค่าหอ', b: 0 },
-      { id: 'net', en: 'Internet', th: 'เน็ต', b: 0 }, { id: 'car', en: 'Car', th: 'ค่ารถ', b: 0 }, { id: 'subs', en: 'Subscriptions', th: 'สมาชิกรายเดือน', b: 0 },
-      { id: 'power', en: 'Power', th: 'ค่าไฟ', b: 0 }, { id: 'haircut', en: 'Haircut', th: 'ตัดผม', b: 0 }, { id: 'laundry', en: 'Laundry', th: 'ซักผ้า', b: 0 },
+      { id: 'travel', en: 'Travel', th: 'เที่ยว', b: 0 }, { id: 'personal', en: 'Personal', th: 'ส่วนตัว', b: 0 },
+      { id: 'haircut', en: 'Haircut', th: 'ตัดผม', b: 0 }, { id: 'laundry', en: 'Laundry', th: 'ซักผ้า', b: 0 },
       { id: 'splurge', en: 'Splurge', th: 'ฟุ่มเฟือย', b: 0 }, { id: 'other', en: 'Other', th: 'อื่นๆ', b: 0 }],
     incCats: [{ id: 'salary', en: 'Salary', th: 'เงินเดือน' }, { id: 'side', en: 'Helping Mom', th: 'ช่วยแม่' }, { id: 'other-in', en: 'Other income', th: 'รายรับอื่น' }],
     people: [], places: [], helpRate: 0, cyclePlans: {}, cfFloor: 0, coverLater: null, sweptZero: [],
@@ -1272,13 +1271,14 @@ const prevMonth = d => { const [y, m, dd] = d.split('-').map(Number); return new
 let SU = null; // the setup form while it is being filled in
 function freshSetup() {
   return {
-    accts: [{ k: 'SCB', n: 'SCB', bal: '' }, { k: 'KPLUS', n: 'K+', bal: '' }, { k: 'CASH', n: '', bal: '' }], // blank name = follows the language
+    step: 1,
+    accts: [{ k: 'SCB', n: 'SCB', bal: '' }, { k: 'CASH', n: '', bal: '' }], // blank name = follows the language
     pots: ST.pots.filter(p => !p.arch).map(p => ({ id: p.id, name: pn(p), bal: '', monthly: '', goal: '', by: '', repeat: false })),
     cards: [{ k: 'CARD', n: '', close: '17', due: '2', from: 'SCB', billed: '', unbilled: '' }],
-    bills: [tl('Rent', 'ค่าหอ'), tl('Internet', 'เน็ต'), tl('Car', 'ค่ารถ')].map(n => ({ n, amount: '', from: 'SCB' })),
+    bills: [], // the owner names each bill; a bill named like a category takes that category off this list
     cats: ST.cats.filter(c => !c.arch).map(c => ({ id: c.id, name: L === 'th' ? c.th : c.en, b: c.b ? String(c.b / 100) : '' })),
     make: '',
-    salaryTo: 'KPLUS', spendTo: 'SCB', salary: ST.salary ? String(ST.salary / 100) : '', payday: '28',
+    salaryTo: 'SCB', spendTo: 'SCB', salary: ST.salary ? String(ST.salary / 100) : '', payday: '28',
   };
 }
 function readSetup() {
@@ -1295,6 +1295,13 @@ function setupStatements(c) {
 }
 function renderSetup() {
   if (!SU) SU = freshSetup();
+  // a bill and a spending category with the same name would budget the same money twice: the bill wins
+  const billNames = new Set(SU.bills.map(b => b.n.trim().toLowerCase()).filter(Boolean));
+  SU.cats = SU.cats.filter(c => !billNames.has(c.name.trim().toLowerCase()));
+  $('setupStep1').hidden = $('setupNav1').hidden = SU.step !== 1; $('setupStep2').hidden = $('setupNav2').hidden = SU.step !== 2;
+  $('setupTitle').textContent = SU.step === 1 ? tl('Where your money is today', 'เงินอยู่ที่ไหนวันนี้') : tl("This cycle's plan", 'แผนรอบ');
+  $('setupLead').textContent = SU.step === 1 ? tl("Copy today's balances from your bank apps. Leave blank for 0.", 'ดูยอดวันนี้จากแอปธนาคาร ช่องที่ไม่มีเว้นว่างได้') : tl('Split your salary until nothing is left to assign.', 'แบ่งเงินเดือนลงแต่ละส่วนจนเหลือ 0');
+  $('setupStepLbl').textContent = tl(`Step ${SU.step} of 2`, `ขั้น ${SU.step} จาก 2`);
   const num = (list, i, f, v, ph = '0', w = '') => `<input class="field${w}" type="number" inputmode="decimal" step="0.01" min="0" data-su="${list}.${i}.${f}" value="${esc(v)}" placeholder="${ph}">`;
   const txt = (list, i, f, v, ph = '') => `<input class="note" style="flex:1;min-width:0;padding:7px 10px" data-su="${list}.${i}.${f}" value="${esc(v)}" placeholder="${esc(ph)}">`;
   const del = (list, i) => `<button type="button" class="xbtn" data-del="${list}.${i}" aria-label="${tl('Remove', 'ลบ')}">×</button>`;
@@ -1371,13 +1378,37 @@ function setupLive() {
   u.innerHTML = n.unsplit === 0 ? `<span>${tl('MAKE total is fully split', 'แบ่งยอด MAKE ครบแล้ว')}</span><b>฿0</b>`
     : n.unsplit > 0 ? `<span>${tl('Not split into pockets yet', 'ยังไม่ได้แบ่ง')}</span><b>฿${fm(n.unsplit)}</b>`
     : `<span>${tl('Pockets add up to more than the total', 'กองรวมเกินยอดรวม')}</span><b>฿${fm(-n.unsplit)}</b>`;
-  $('startBtn').disabled = n.unsplit !== 0;
+  $('nextBtn').disabled = n.unsplit !== 0;
   $('setupAssign').className = 'assign' + (n.left === 0 ? ' ok' : ''); $('setupAssign').innerHTML = assignHTML(n.left);
   $('setupPotSum').textContent = '฿' + fm0(n.potSum); $('setupBillSum').textContent = '฿' + fm0(n.billSum); $('setupCatSum').textContent = '฿' + fm0(n.catSum);
 }
+// what step 1 asks for, checked before moving on ('' when fine); the account filter matches Start's
+const keepAcct = a => !(C.isAcct(a.k) && !a.n.trim() && !String(a.bal ?? '').trim() && a.k !== SU.salaryTo && a.k !== SU.spendTo);
+function step1Error() {
+  readSetup();
+  const kept = SU.accts.filter(keepAcct), names = kept.map(a => suName(a).toLowerCase());
+  const pots = SU.pots.map(p => ({ name: p.name.trim(), any: sat0(p.bal) || sat0(p.monthly) || sat0(p.goal) })).filter(p => p.name || p.any);
+  const cards = SU.cards.map(c => ({ n: c.n.trim(), close: +c.close, due: +c.due }));
+  const nums = [...SU.accts.map(a => a.bal), ...SU.pots.map(p => p.bal), ...SU.cards.flatMap(c => [c.billed, c.unbilled]), SU.make].map(sat0);
+  if (nums.some(v => Number.isNaN(v) || v < 0)) return tl('Amounts must be numbers of 0 or more.', 'ยอดต้องเป็นตัวเลข 0 ขึ้นไป');
+  if (setupNumbers().unsplit !== 0) return tl('Split the MAKE total across pockets until nothing is left.', 'แบ่งยอดรวม MAKE ลงกองให้ครบก่อน');
+  if (kept.some(a => C.isAcct(a.k) && !a.n.trim())) return tl('Every account you added needs a name.', 'บัญชีที่เพิ่มต้องมีชื่อ');
+  if (new Set(names).size !== names.length) return tl('Two accounts have the same name.', 'มีบัญชีชื่อซ้ำกัน');
+  if (pots.some(p => !p.name)) return tl('Every pocket needs a name.', 'ทุกกองต้องมีชื่อ');
+  if (new Set(pots.map(p => p.name.toLowerCase())).size !== pots.length) return tl('Two pockets have the same name.', 'มีกองชื่อซ้ำกัน');
+  if (cards.some(c => !dayOk(c.close) || !dayOk(c.due))) return tl('Card days must be 1 to 28.', 'วันของบัตรต้องอยู่ระหว่าง 1 ถึง 28');
+  if (cards.some(c => !c.n)) return tl('Give each card a name, e.g. KTC.', 'ตั้งชื่อบัตร เช่น KTC');
+  if (new Set(cards.map(c => c.n.toLowerCase())).size !== cards.length) return tl('Give each card its own name.', 'ตั้งชื่อบัตรแต่ละใบให้ไม่ซ้ำกัน');
+  return '';
+}
+$('nextBtn') && ($('nextBtn').onclick = () => {
+  const e = step1Error(); $('setupMsg').textContent = e; if (e) return;
+  SU.step = 2; renderSetup(); window.scrollTo(0, 0);
+});
+$('backBtn') && ($('backBtn').onclick = () => { readSetup(); $('setupMsg').textContent = ''; SU.step = 1; renderSetup(); window.scrollTo(0, 0); });
 $('startBtn') && ($('startBtn').onclick = () => {
   readSetup();
-  SU.accts = SU.accts.filter(a => !(C.isAcct(a.k) && !a.n.trim() && !String(a.bal ?? '').trim() && a.k !== SU.salaryTo && a.k !== SU.spendTo));
+  SU.accts = SU.accts.filter(keepAcct);
   const msg = m => { $('setupMsg').textContent = m; };
   const sat = v => (String(v ?? '').trim() === '' ? 0 : C.toSatang(v));
   const accts = SU.accts.map(a => ({ k: a.k, n: suName(a), balS: sat(a.bal) }));
@@ -1385,18 +1416,11 @@ $('startBtn') && ($('startBtn').onclick = () => {
   const cards = SU.cards.map(c => ({ ...c, n: c.n.trim(), close: +c.close, due: +c.due, billedS: sat(c.billed), unbilledS: sat(c.unbilled) }));
   const bills = SU.bills.map(b => ({ ...b, n: b.n.trim(), amountS: sat(b.amount) })).filter(b => b.amountS);
   const salary = sat(SU.salary), pday = +SU.payday, catB = SU.cats.map(c => sat(c.b));
-  if (setupNumbers().unsplit !== 0) return msg(tl('Split the MAKE total across pockets until nothing is left.', 'แบ่งยอดรวม MAKE ลงกองให้ครบก่อน'));
+  const e1 = step1Error(); if (e1) { SU.step = 1; renderSetup(); window.scrollTo(0, 0); return msg(e1); }
   if (!(Number.isInteger(pday) && pday >= 1 && pday <= 31)) return msg(tl('Cycle start must be a day from 1 to 31.', 'วันเริ่มรอบต้องอยู่ระหว่าง 1 ถึง 31'));
   const all = [salary, ...accts.map(a => a.balS), ...pots.flatMap(p => [p.balS, p.monS, p.goalS]), ...cards.flatMap(c => [c.billedS, c.unbilledS]), ...bills.map(b => b.amountS), ...catB, sat(SU.make)];
   if (all.some(v => Number.isNaN(v) || v < 0)) return msg(tl('Amounts must be numbers of 0 or more.', 'ยอดต้องเป็นตัวเลข 0 ขึ้นไป'));
   if (!(salary > 0)) return msg(tl('Enter your monthly salary.', 'ใส่เงินเดือน'));
-  if (SU.accts.some(a => C.isAcct(a.k) && !a.n.trim())) return msg(tl('Every account you added needs a name.', 'บัญชีที่เพิ่มต้องมีชื่อ'));
-  if (new Set(accts.map(a => a.n.toLowerCase())).size !== accts.length) return msg(tl('Two accounts have the same name.', 'มีบัญชีชื่อซ้ำกัน'));
-  if (pots.some(p => !p.name)) return msg(tl('Every pocket needs a name.', 'ทุกกองต้องมีชื่อ'));
-  if (new Set(pots.map(p => p.name.toLowerCase())).size !== pots.length) return msg(tl('Two pockets have the same name.', 'มีกองชื่อซ้ำกัน'));
-  if (cards.some(c => !dayOk(c.close) || !dayOk(c.due))) return msg(tl('Card days must be 1 to 28.', 'วันของบัตรต้องอยู่ระหว่าง 1 ถึง 28'));
-  if (cards.some(c => !c.n)) return msg(tl('Give each card a name, e.g. KTC.', 'ตั้งชื่อบัตร เช่น KTC'));
-  if (cards.length > 1 && (cards.some(c => !c.n) || new Set(cards.map(c => c.n.toLowerCase())).size !== cards.length)) return msg(tl('Give each card its own name.', 'ตั้งชื่อบัตรแต่ละใบให้ไม่ซ้ำกัน'));
   if (bills.some(b => !b.n)) return msg(tl('Every bill with an amount needs a name.', 'รายการที่มียอดต้องมีชื่อ'));
   if (!pots.some(p => p.id === 'cashflow')) pots.unshift({ id: 'cashflow', name: 'Cash flow', balS: 0, monS: 0 });
   const potKeys = pots.map(p => 'pot:' + p.id), acctKeys = accts.map(a => a.k), cardKeys = cards.map(c => c.k);
