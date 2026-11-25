@@ -914,11 +914,11 @@ const ym = v => `${MN()[+v.slice(5) - 1]} ${v.slice(0, 4)}`;
 // one line saying where a pocket's plan stands
 function potLine(p, have, from) {
   const x = C.potPlan(p, have, from);
-  if (x.status === 'none') return tl('No monthly transfer', 'ไม่ได้โอนประจำ');
+  if (x.status === 'none') return tl('No monthly transfer (optional)', 'ไม่ได้โอนประจำ (ไม่ใส่ก็ได้)');
   if (x.status === 'fixed') return tl(`฿${fm0(x.per)} every month`, `เดือนละ ฿${fm0(x.per)}`);
   if (x.status === 'done') return tl(`Goal ฿${fm0(x.goal)} reached`, `ครบเป้า ฿${fm0(x.goal)} แล้ว`);
   const goal = tl(`Goal ฿${fm0(x.goal)}`, `เป้า ฿${fm0(x.goal)}`);
-  if (x.status === 'open' && !x.per) return `${goal} · ${tl('add a month or an amount per month', 'ใส่เดือนที่อยากให้ครบ หรือยอดต่อเดือน')}`;
+  if (x.status === 'open' && !x.per) return `${goal} · ${tl(`have ฿${fm0(have)} · top up when there is money left`, `มีแล้ว ฿${fm0(have)} · เติมเมื่อมีเงินเหลือ`)}`;
   if (x.status === 'open') return `${goal} · ${tl(`done ${ym(x.finish)}`, `ครบ ${ym(x.finish)}`)}`;
   if (x.status === 'late') return `${goal} ${tl(`by ${ym(x.by)}`, `ภายใน ${ym(x.by)}`)} · ${tl(`${x.late} mo late, needs ฿${fm0(x.need)}/mo`, `ช้าไป ${x.late} เดือน ต้องเดือนละ ฿${fm0(x.need)}`)}`;
   const early = x.per > x.need ? tl(` · at ฿${fm0(x.per)}/mo done ${ym(x.finish)}`, ` · โอนเดือนละ ฿${fm0(x.per)} ครบ ${ym(x.finish)}`) : '';
