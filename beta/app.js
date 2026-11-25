@@ -333,7 +333,7 @@ function endCard() {
   }
   if (!tgt || !ST.setupDone) return;
   const start = tgt.cycle.start;
-  if (ST.entries.some(e => e.tag === `sweep:${start}`) || (ST.sweptZero || []).includes(start)) return;
+  if (ST.entries.some(e => e.tag === `sweep:${start}` || (e.tag || '').startsWith(`sweep:${start}:`)) || (ST.sweptZero || []).includes(start)) return;
   const sw = C.sweep(ST, tgt.asOf), bal = C.balances(ST, { asOf: tgt.asOf })[sw.from] || 0, owed = Math.max(0, bal - sw.amount);
   const cats = C.cycleStatus(ST, tgt.asOf).cats.filter(c => (c.budget > 0 || c.spent > 0) && c.left !== 0);
   const when = tgt.asOf === ST.today ? tl('today', 'วันนี้') : dl(tgt.asOf);
@@ -345,20 +345,48 @@ function endCard() {
     el.hidden = false; return;
   }
   const gap = Math.abs(sw.gap) > 1000;
+  // optional: send part of the leftover to goal pockets instead of Cash flow
+  const goalPots = ST.pots.filter(p => !p.arch && p.goal && p.id !== 'cashflow'), balAll = C.balances(ST, { asOf: tgt.asOf });
+  const topOpen = endTop.start === start && endTop.open;
+  const topRows = goalPots.map(p => { const have = balAll['pot:' + p.id] || 0;
+    return `<div class="tprow"><label for="tp_${esc(p.id)}">${esc(pn(p))}<small>${tl(`Has ฿${fm0(have)} / goal ฿${fm0(p.goal)}`, `มีแล้ว ฿${fm0(have)} / เป้า ฿${fm0(p.goal)}`)}</small></label>`
+      + `<input class="field" id="tp_${esc(p.id)}" data-tp="${esc(p.id)}" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0" value="${esc((endTop.v || {})[p.id] || '')}"></div>`; }).join('');
   el.innerHTML = `<div class="lbl">${tl('Left this cycle', 'รอบนี้เหลือ')} · ${esc(sub)}</div>`
     + `<div class="amt num"><small>฿</small>${fm(sw.amount)}</div>`
-    + `<div class="arrow">${tl('Move it to Cash flow in one go', 'โอนเข้า Cash flow ทีเดียว')}</div>`
+    + `<div class="arrow" id="endArrow"></div>`
     + `<div><div class="eln"><span>${esc(acct(sw.from))}<small>${esc(when)}</small></span><span class="num">${fm(bal)}</span></div>`
     + (owed ? `<div class="eln"><span>${tl('Card owed', 'ค้างจ่ายบัตร')}<small>${tl('kept, not moved', 'กันไว้ ไม่โอน')}</small></span><span class="num">−${fm(owed)}</span></div>` : '') + `</div>`
     + (cats.length ? `<p class="from">${tl('From categories: ', 'มาจากหมวด: ')}${cats.map(c => `${esc(cn(c.id))} ${c.left < 0 ? '−' : '+'}${fm0(Math.abs(c.left))}`).join(' · ')}</p>` : '')
     + (gap ? `<div class="gapln"><span>${tl(`Differs from your records by ฿${fm0(Math.abs(sw.gap))}`, `ต่างจากที่จด ฿${fm0(Math.abs(sw.gap))}`)}</span><button type="button" id="endCheck">${tl('Check balance', 'เช็กยอด')}</button></div>` : '')
-    + `<button type="button" class="btn" id="endGo">${tl(`Move ฿${fm(sw.amount)} · plan the new cycle`, `โอน ฿${fm(sw.amount)} · เริ่มแผนรอบใหม่`)}</button>`;
+    + (goalPots.length ? `<button type="button" class="toptoggle" id="endTopBtn" aria-expanded="${topOpen}" aria-controls="endTopBox">${topOpen ? tl('Hide goal pockets', 'ซ่อนกองเป้า') : tl('Top up a goal pocket', 'เติมกองเป้า')}</button>`
+      + `<div class="topbox" id="endTopBox" ${topOpen ? '' : 'hidden'}>${topRows}<p class="toperr" id="endTopErr" role="alert" hidden>${tl('Top-ups are more than what is left. Lower an amount.', 'เติมรวมมากกว่าเงินที่เหลือ ลดยอดลงหน่อย')}</p></div>` : '')
+    + `<button type="button" class="btn" id="endGo"></button>`;
+  const tops = () => goalPots.map(p => { const i = el.querySelector(`[data-tp="${p.id}"]`), v = i && i.value.trim() !== '' ? C.toSatang(i.value) : 0; return { p, v: Number.isFinite(v) && v > 0 ? v : 0, raw: i ? i.value : '' }; });
+  const paint = () => {
+    const t = tops(), sum = t.reduce((s, x) => s + x.v, 0), rest = sw.amount - sum, bad = rest < 0;
+    endTop.start = start; endTop.v = Object.fromEntries(t.map(x => [x.p.id, x.raw]));
+    $('endArrow').textContent = sum > 0 ? tl(`฿${fm(Math.max(0, rest))} to Cash flow · ฿${fm(sum)} to goal pockets`, `฿${fm(Math.max(0, rest))} เข้า Cash flow · ฿${fm(sum)} เข้ากองเป้า`) : tl('Move it to Cash flow in one go', 'โอนเข้า Cash flow ทีเดียว');
+    $('endGo').textContent = tl(`Move ฿${fm(sw.amount)} · plan the new cycle`, `โอน ฿${fm(sw.amount)} · เริ่มแผนรอบใหม่`);
+    $('endGo').disabled = bad; if ($('endTopErr')) $('endTopErr').hidden = !bad;
+    return { t, rest };
+  };
+  paint();
   if (gap) $('endCheck').onclick = () => { RA = sw.from; go('wallet'); setTimeout(() => $('realScb').scrollIntoView({ block: 'center' }), 0); };
+  if (goalPots.length) {
+    $('endTopBtn').onclick = () => { endTop.start = start; endTop.open = !topOpen; endCard(); };
+    el.querySelectorAll('[data-tp]').forEach(i => { i.oninput = paint; });
+  }
   $('endGo').onclick = () => {
-    attempt({ type: 'transfer', date: ST.today, amount: sw.amount, from: sw.from, to: 'pot:cashflow', note: 'cycle close', tag: `sweep:${start}` },
-      { msg: tl(`Moved ฿${fm0(sw.amount)} to Cash flow`, `โอน ฿${fm0(sw.amount)} เข้า Cash flow แล้ว`) }) && go('plan'); };
+    const { t, rest } = paint(); if (rest < 0) return;
+    const ok = t.filter(x => x.v > 0).every(x => attempt({ type: 'transfer', date: ST.today, amount: x.v, from: sw.from, to: 'pot:' + x.p.id, note: 'cycle close', tag: `sweep:${start}:${x.p.id}` }, { quiet: true }))
+      && (rest === 0 || attempt({ type: 'transfer', date: ST.today, amount: rest, from: sw.from, to: 'pot:cashflow', note: 'cycle close', tag: `sweep:${start}` }, { quiet: true }));
+    if (!ok) { persist(); home(); return; }
+    if (rest === 0) ST.sweptZero = [...(ST.sweptZero || []), start];
+    endTop = {}; persist();
+    toast(tl(`Moved ฿${fm0(sw.amount)}`, `โอน ฿${fm0(sw.amount)} แล้ว`), true); go('plan'); };
   el.hidden = false;
 }
+let endTop = {}; // the goal-pocket top-up form on the end-of-cycle card: { start, open, v: { potId: text } }
 // one bar per category: grey toward the budget, marigold when nearly used, hatched red past it
 function homeCats(cs) {
   const rows = cs.cats.filter(c => c.budget > 0 || c.spent > 0);
@@ -1332,7 +1360,7 @@ function renderSetup() {
       <label>${tl('Reach by', 'ครบภายใน')}<input class="field" type="month" data-su="pots.${i}.by" data-redraw="1" value="${esc(p.by)}"></label>
       <label class="rep"><input type="checkbox" data-su="pots.${i}.repeat" data-redraw="1" ${p.repeat ? 'checked' : ''}> ${tl('Same goal every year', 'เป้าวนทุกปี')}</label>` : ''}
     </div></div>`; }).join('') || `<div class="ln"><span class="k">${tl('No pockets yet', 'ยังไม่มีกอง')}</span></div>`;
-  $('setupCats').innerHTML = SU.cats.map((c, i) => `<div class="ln"><span class="k">${esc(c.name)}</span>${num('cats', i, 'b', c.b)}</div>`).join('');
+  $('setupCats').innerHTML = SU.cats.map((c, i) => `<div class="ln" style="gap:6px">${txt('cats', i, 'name', c.name, tl('Category name', 'ชื่อหมวด'))}${num('cats', i, 'b', c.b, '0', '" style="width:96px')}${del('cats', i)}</div>`).join('');
   $('setupPots').innerHTML = SU.pots.map((p, i) => { const cf = p.id === 'cashflow';
     return `<div class="ln" style="flex-wrap:wrap;gap:6px"><input class="note" style="flex:1;min-width:0;padding:7px 10px" data-su="pots.${i}.name" value="${esc(p.name)}" placeholder="${tl('Pocket name', 'ชื่อกอง')}" aria-label="${tl('Pocket name', 'ชื่อกอง')}" ${cf ? 'readonly' : ''}>${num('pots', i, 'bal', p.bal, '0', '" style="width:96px')}${cf ? '' : del('pots', i)}
     ${cf ? `<span class="pline" style="flex-basis:100%;font-size:13px;color:var(--ink-2)">${tl('Holds what is left (or covers what is short) at the end of each cycle. The app uses it, so it has no goal and cannot be renamed.', 'กองพักเงินเหลือ/ขาดตอนจบแต่ละรอบ แอปใช้เอง จึงไม่มีเป้าและเปลี่ยนชื่อไม่ได้')}</span>` : ''}</div>`; }).join('');
@@ -1360,6 +1388,7 @@ function renderSetup() {
   $('setupMake').onchange = setupLive;
   setupLive();
   document.querySelectorAll('#s-setup [data-del]').forEach(b => b.onclick = () => { readSetup(); const [list, i] = b.dataset.del.split('.');
+    if (list === 'cats' && SU.cats.length <= 1) { toast(tl('Keep at least one category', 'ต้องเหลืออย่างน้อยหนึ่งหมวด')); return; }
     if (list === 'accts' && SU.accts.length <= 1) { toast(tl('Keep at least one account', 'ต้องมีอย่างน้อยหนึ่งบัญชี')); return; }
     const gone = SU[list].splice(+i, 1)[0];
     const fix = k => (k === gone.k ? SU.accts[0].k : k);
@@ -1369,6 +1398,7 @@ function renderSetup() {
   $('addSetupAcct').onclick = () => { readSetup(); SU.accts.push({ k: 'acct:a' + Date.now(), n: '', bal: '' }); renderSetup(); document.querySelector(`[data-su="accts.${SU.accts.length - 1}.n"]`).focus(); };
   $('addSetupPot').onclick = () => { readSetup(); SU.pots.push({ id: 'p' + Date.now(), name: '', bal: '', monthly: '', goal: '', by: '', repeat: false }); renderSetup(); document.querySelector(`[data-su="pots.${SU.pots.length - 1}.name"]`).focus(); };
   $('addSetupCard').onclick = () => { readSetup(); SU.cards.push({ k: SU.cards.some(c => c.k === 'CARD') ? 'card:c' + Date.now() : 'CARD', n: '', close: '17', due: '2', from: SU.spendTo, billed: '', unbilled: '' }); renderSetup(); };
+  $('addSetupCat').onclick = () => { readSetup(); SU.cats.push({ id: 'c' + Date.now() + SU.cats.length, name: '', b: '' }); renderSetup(); document.querySelector(`[data-su="cats.${SU.cats.length - 1}.name"]`).focus(); };
   $('addSetupBill').onclick = () => { readSetup(); SU.bills.push({ n: '', amount: '', from: SU.spendTo }); renderSetup(); document.querySelector(`[data-su="bills.${SU.bills.length - 1}.n"]`).focus(); };
 }
 // live numbers on the first-run page: MAKE total still to split across pockets, and the plan's left to assign
@@ -1407,6 +1437,9 @@ function step1Error() {
   if (new Set(pots.map(p => p.name.toLowerCase())).size !== pots.length) return tl('Two pockets have the same name.', 'มีกองชื่อซ้ำกัน');
   if (cards.some(c => !dayOk(c.close) || !dayOk(c.due))) return tl('Card days must be 1 to 28.', 'วันของบัตรต้องอยู่ระหว่าง 1 ถึง 28');
   if (cards.some(c => !c.n)) return tl('Give each card a name, e.g. KTC.', 'ตั้งชื่อบัตร เช่น KTC');
+  const cnames = SU.cats.map(c => c.name.trim().toLowerCase());
+  if (cnames.some(n => !n)) return tl('Every category needs a name.', 'ทุกหมวดต้องมีชื่อ');
+  if (new Set(cnames).size !== cnames.length) return tl('Two categories have the same name.', 'มีหมวดชื่อซ้ำกัน');
   if (new Set(cards.map(c => c.n.toLowerCase())).size !== cards.length) return tl('Give each card its own name.', 'ตั้งชื่อบัตรแต่ละใบให้ไม่ซ้ำกัน');
   return '';
 }
@@ -1451,7 +1484,11 @@ $('startBtn') && ($('startBtn').onclick = () => {
   });
   const billSum = bills.reduce((t, b) => t + b.amountS, 0);
   if (billSum > salary && SU.okBills !== billSum) { SU.okBills = billSum; return msg(tl(`Monthly bills add up to ฿${fm(billSum)}, more than your salary ฿${fm(salary)}. Check for a typo, then tap Start again.`, `รายจ่ายประจำรวม ฿${fm(billSum)} มากกว่าเงินเดือน ฿${fm(salary)} ตรวจว่าพิมพ์ผิดไหม ถ้าถูกแล้วกดเริ่มใช้งานอีกครั้ง`)); }
-  SU.cats.forEach((c, i) => { const x = ST.cats.find(k => k.id === c.id); if (x) x.b = catB[i]; });
+  // categories come from the form: kept ones follow its name and budget, new ones are created, removed ones are archived (history stays)
+  const keep = new Set(SU.cats.map(c => c.id));
+  ST.cats.forEach(k => { if (!keep.has(k.id)) k.arch = true; });
+  SU.cats.forEach((c, i) => { const nm = c.name.trim(), x = ST.cats.find(k => k.id === c.id);
+    if (x) { x.en = nm; x.th = nm; x.b = catB[i]; delete x.arch; } else ST.cats.push({ id: c.id, en: nm, th: nm, b: catB[i] }); });
   ST.payday = pday === 28 ? [] : [{ since: '0000-01-01', day: pday }];
   Object.assign(ST, { opening: o, openingStatements: os, setupDone: true, startDate: ST.today, sample: false });
   SU = null; persist(); toast(tl('All set. Record your first entry with +', 'พร้อมแล้ว กด + เพื่อจดรายการแรก')); go('home'); let seen = false; try { seen = !!localStorage.getItem('toured'); } catch (e) {} if (!seen) showTour(0);

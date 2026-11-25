@@ -606,6 +606,15 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
 .endcard .gapln button{width:auto;background:none;border:0;color:#f4c98a;font:inherit;font-weight:600;text-decoration:underline;text-underline-offset:3px;padding:6px 0;min-height:44px;cursor:pointer}
 .endcard .btn{background:var(--accent-btn);color:var(--marigold-ink);min-height:48px}
 .endcard .btn.quiet{background:rgba(255,255,255,.12);color:#fff}
+.endcard .toptoggle{width:auto;align-self:flex-start;background:none;border:0;color:#f4c98a;font:inherit;font-weight:600;text-decoration:underline;text-underline-offset:3px;padding:6px 0;min-height:44px;cursor:pointer}
+.endcard .topbox{display:flex;flex-direction:column;gap:4px;background:rgba(255,255,255,.08);border-radius:12px;padding:6px 12px}
+.endcard .topbox[hidden]{display:none}
+.endcard .tprow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 0;font-size:14px}
+.endcard .tprow label{flex:1;min-width:0}
+.endcard .tprow small{display:block;font-size:13px;color:rgba(255,255,255,.7)}
+.endcard .tprow .field{width:104px;min-height:44px;font-size:16px;color:var(--ink)}
+.endcard .toperr{margin:0;font-size:13px;color:#f4c98a}
+.endcard .btn:disabled{opacity:.5;cursor:not-allowed}
 .endcard button:focus-visible{outline:2px solid #fff;outline-offset:2px}
 .pdstep{background:var(--raise);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;margin-top:6px}
 .pdstep[hidden]{display:none}
@@ -733,7 +742,8 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
     <div class="sec"><h2><span class="h" data-en="Monthly must-pay bills" data-th="บิลประจำ">Monthly bills</span><span class="num" id="setupBillSum"></span></h2><div class="ledger" id="setupBills"></div>
       <button class="btn link" id="addSetupBill" data-en="+ Add a bill" data-th="+ เพิ่มบิล">Add a bill</button>
       <p class="hint" data-en="Set aside each cycle until you record paying it. Leave blank if it does not apply." data-th="แอปกันเงินส่วนนี้ไว้ทุกรอบจนกว่าจะจดว่าจ่าย · ไม่มีเว้นว่างได้">Set aside each cycle until paid.</p></div>
-    <div class="sec"><h2><span class="h" data-en="Spending categories" data-th="หมวดใช้จ่าย">Spending categories</span><span class="num" id="setupCatSum"></span></h2><div class="ledger" id="setupCats"></div></div>
+    <div class="sec"><h2><span class="h" data-en="Spending categories" data-th="หมวดใช้จ่าย">Spending categories</span><span class="num" id="setupCatSum"></span></h2><p class="hint" data-en="Per-cycle spending budgets, e.g. food, fuel. You can go over; the app shows it as negative." data-th="งบใช้จ่ายรายรอบ เช่น กิน น้ำมัน ใช้เกินได้ แอปจะโชว์ติดลบ">Per-cycle spending budgets.</p><div class="ledger" id="setupCats"></div>
+      <button class="btn link" id="addSetupCat" data-en="+ Add a category" data-th="+ เพิ่มหมวด">Add a category</button></div>
     </div>
     <p class="msg err" id="setupMsg" role="alert" style="margin:0"></p>
     <div class="setupstep" id="setupNav1"><button class="btn" id="nextBtn" data-en="Next" data-th="ถัดไป">Next</button>
