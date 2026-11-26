@@ -628,7 +628,7 @@ function sharesFor(total) {
 }
 // back-dated: before the start day it always is; on the start day the user says so
 const isPre = () => !!ST.startDate && C.isDate(F.date) && (F.date < ST.startDate || (F.date === ST.startDate && F.pre));
-function buildEntry() { const e = buildEntry0(); if (isPre()) e.pre = true; else if (F.off && e.type === 'expense') e.off = true; return e; } // a paid-outside entry stays one when edited
+function buildEntry() { flushFriend(); const e = buildEntry0(); if (isPre()) e.pre = true; else if (F.off && e.type === 'expense') e.off = true; return e; } // a paid-outside entry stays one when edited
 function buildEntry0() {
   const amount = C.toSatang(F.amount);
   if (F.type === 'expense') {
@@ -705,10 +705,11 @@ function renderAdd() {
     $('people').querySelectorAll('button').forEach(b => b.onclick = () => { const p = b.dataset.p; F.split = F.split.includes(p) ? F.split.filter(x => x !== p) : [...F.split, p]; delete F.custom[p]; F.confirmed = false; renderAdd(); });
     const total = C.toSatang(F.amount), sh = sharesFor(total);
     $('shares').hidden = !F.split.length;
+    if (F.split.length && !(total > 0)) { $('shares').innerHTML = `<p class="qhint">${tl('Enter the amount first; then each share shows here (equal by default, tap a number to change it)', 'ใส่ยอดเงินก่อน แล้วส่วนของแต่ละคนจะขึ้นตรงนี้ (หารเท่ากันให้ก่อน แตะตัวเลขเพื่อแก้ได้)')}</p>`; } else {
     const mine = total > 0 ? total - sh.reduce((s, x) => s + (x.amount || 0), 0) : 0;
     $('shares').innerHTML = `<div class="ln"><span class="k">${tl('My share', 'ส่วนของฉัน')}<small>${tl('Counted as my spending', 'นับเป็นรายจ่ายของฉัน')}</small></span><b class="num ${mine < 0 ? 'neg' : ''}">${fm(mine)}</b></div>` +
       sh.map(s => `<div class="ln"><span class="k">${esc(s.p)}<small>${tl('Owes you', 'ต้องคืนคุณ')}</small></span><input class="field" type="number" inputmode="decimal" step="0.01" data-s="${esc(s.p)}" value="${Number.isNaN(s.amount) ? '' : (s.amount / 100).toFixed(2)}"></div>`).join('');
-    $('shares').querySelectorAll('[data-s]').forEach(i => i.onchange = ev => { F.custom[i.dataset.s] = ev.target.value; F.confirmed = false; renderAdd(); });
+    $('shares').querySelectorAll('[data-s]').forEach(i => i.onchange = ev => { F.custom[i.dataset.s] = ev.target.value; F.confirmed = false; renderAdd(); }); }
   }
   if (isI) {
     seg($('incTo'), withCur(liveAccts(), F.to).map(a => [a, esc(acct(a))]), F.to, k => { F.to = k; });
@@ -757,6 +758,12 @@ $('date').oninput = ev => { F.date = ev.target.value; F.confirmed = false; rende
 $('note').oninput = ev => { F.note = ev.target.value; };
 $('hours').oninput = ev => { F.hours = ev.target.value; const h = Number(F.hours); F.amount = h > 0 ? (Math.round(h * ST.helpRate) / 100).toFixed(2) : ''; F.confirmed = false; renderAdd(); };
 $('place').oninput = ev => { F.place = ev.target.value; const p = ST.places.find(x => x.n.toLowerCase() === F.place.trim().toLowerCase()); if (p) { F.cat = p.c; F.from = C.isInvest(ST, p.s) ? ST.spendTo : p.s; } renderAdd(); $('place').focus(); };
+// a typed name counts even if "Add" was never tapped (on Enter, leaving the box, Done or Save)
+function flushFriend() { const v = $('newFriend').value.trim(); if (!v) return false;
+  if (!friendList().includes(v)) { ST.people.push(v); persist(); }
+  if (!F.split.includes(v)) F.split.push(v); $('newFriend').value = ''; return true; }
+$('newFriend').onchange = () => { if (flushFriend()) { F.confirmed = false; renderAdd(); } };
+$('newFriend').onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); $('newFriend').blur(); } };
 $('addFriend').onclick = () => {
   const v = $('newFriend').value.trim(); if (!v) { $('newFriend').focus(); return; }
   if (!friendList().includes(v)) { ST.people.push(v); persist(); }
@@ -849,7 +856,7 @@ $('qDate').onclick = () => {
 const D_PARTS = ['gBill', 'gPlace', 'gSplit', 'gNote'].map(id => { const n = $(id); return { n, parent: n.parentNode, next: n.nextSibling }; });
 $('qMore').onclick = () => { F.dOpen = true; PAD = false; D_PARTS.forEach(x => $('dSlot').appendChild(x.n)); $('dSheet').hidden = false; renderAdd(); };
 function closeDetails() {
-  if (!F.dOpen) return; F.dOpen = false; $('dSheet').hidden = true;
+  if (!F.dOpen) return; flushFriend(); F.dOpen = false; $('dSheet').hidden = true;
   [...D_PARTS].reverse().forEach(x => x.parent.insertBefore(x.n, x.next));
   if (F.cat && ST.cats.some(c => c.id === F.cat && !c.arch)) F.qcat = F.cat; // a bill or a known shop picks the category
   renderAdd();
