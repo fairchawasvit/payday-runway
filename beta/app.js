@@ -205,7 +205,7 @@ function shown(e) {
   if (C.isPerson(e.from)) return { s: e.amount, cls: 'pos' };
   return { s: e.amount, cls: 'move' };
 }
-const money = (e) => { const v = shown(e); return v.cls === 'move' ? `<span class="num mv">⇄ ${fm(v.s)}</span>` : `<span class="num ${v.cls}">${v.s > 0 ? '+' : '−'}${fm(Math.abs(v.s))}</span>`; };
+const money = (e) => { const v = shown(e); if (e.type === 'expense' && e.shares && e.shares.length) return `<span class="num amtcol">−${fm(e.amount)}<small class="myshare">${tl('mine', 'ส่วนฉัน')} ${fm(C.myShare(e))}</small></span>`; return v.cls === 'move' ? `<span class="num mv">⇄ ${fm(v.s)}</span>` : `<span class="num ${v.cls}">${v.s > 0 ? '+' : '−'}${fm(Math.abs(v.s))}</span>`; };
 const sorted = () => [...ST.entries].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
 
 // ---------- commit with undo ----------
@@ -325,12 +325,11 @@ function home() {
     fn: () => { go('set'); openFold('Starting balances'); } }));
   const owe = Object.entries(r.people).filter(([, v]) => v > 0);
   if (owe.length > 1) T.push({ id: 'ppl', cls: 'green', ico: 'i-user', t: tl(`${owe.length} friends owe you ฿${fm(owe.reduce((t, [, v]) => t + v, 0))}`, `เพื่อนค้างคืน ${owe.length} คน รวม ฿${fm(owe.reduce((t, [, v]) => t + v, 0))}`),
-    sub: owe.map(([k, v]) => `${person(k)} ${fm0(v)}`).join(' · '), btn: tl('View', 'ดู'), fn: () => go('wallet') });
+    sub: owe.map(([k, v]) => `${person(k)} ${fm0(v)}`).join(' · '), btn: tl('View', 'ดู'), fn: () => { go('wallet'); setTimeout(() => $('pplSec').scrollIntoView({ block: 'start' }), 50); } });
   Object.entries(r.people).filter(([, v]) => v < 0 || (v > 0 && owe.length === 1)).sort((a, z) => z[1] - a[1]).forEach(([k, v]) => T.push({ id: 'ppl', cls: v > 0 ? 'green' : '', ico: 'i-user',
     t: v > 0 ? tl(`${person(k)} owes you ฿${fm(v)}`, `${person(k)} ค้างคืน ฿${fm(v)}`) : tl(`You owe ${person(k)} ฿${fm(-v)}`, `คุณค้าง${person(k)} ฿${fm(-v)}`),
-    sub: tl('Got only part of it? Change it in Wallet', 'ได้ไม่ครบ? แก้ยอดได้ในกระเป๋า'), btn: v > 0 ? tl('Got it all', 'ได้คืนครบ') : tl('Paid', 'จ่ายแล้ว'),
-    fn: () => attempt(v > 0 ? { type: 'transfer', date: ST.today, amount: v, from: 'person:' + k, to: ST.spendTo } : { type: 'transfer', date: ST.today, amount: -v, from: ST.spendTo, to: 'person:' + k },
-      { msg: v > 0 ? tl(`${person(k)} paid back ฿${fm(v)}`, `${person(k)} คืน ฿${fm(v)}`) : tl(`Paid ${person(k)} ฿${fm(-v)}`, `โอนให้${person(k)} ฿${fm(-v)}`) }) && home() }));
+    sub: v > 0 ? tl('Tap to record it; change the amount if they paid part', 'แตะเพื่อจด · แก้ยอดได้ถ้าคืนไม่ครบ') : tl('Tap to record it; change the amount if you paid part', 'แตะเพื่อจด · แก้ยอดได้ถ้าจ่ายไม่ครบ'), btn: v > 0 ? tl('Got it', 'ได้คืน') : tl('Paid', 'จ่ายแล้ว'),
+    fn: () => { const amount = (Math.abs(v) / 100).toFixed(2); F = v > 0 ? { ...blankForm(), type: 'income', incCat: '__repay', repay: k, amount } : { ...blankForm(), type: 'transfer', tFrom: ST.spendTo, tTo: 'person:' + k, amount }; go('add'); } }));
   { const pay = planPay(), salDone = salaryIn(pay);
     if ((r.daysLeft <= 2 || pay <= ST.today) && !salDone) T.unshift({ id: 'plan', ico: 'i-split', t: pay <= ST.today ? tl(`Salary for the cycle from ${dl(pay)} in yet? Split it when it is`, `เงินเดือนรอบ ${dl(pay)} เข้าหรือยัง? เข้าแล้วกดแบ่งเงิน`) : tl(`New cycle ${dl(pay)}: split your salary when it arrives`, `รอบใหม่เริ่ม ${dl(pay)} · เงินเดือนเข้าแล้วกดแบ่งเงิน`),
       sub: tl(`฿${fm(ST.salary)} into ${acct(ST.salaryTo)}`, `฿${fm(ST.salary)} เข้า ${acct(ST.salaryTo)}`), btn: tl('Open', 'เปิด'), fn: () => go('plan') }); }
@@ -604,7 +603,8 @@ function bindRows(root) {
   root.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => startEdit(+b.dataset.edit));
   root.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
     if (b.dataset.armed) { removeEntry(+b.dataset.del); openId = null; render(); return; }
-    b.dataset.armed = 1; b.textContent = tl('Tap again to delete', 'แตะอีกครั้งเพื่อลบ');
+    const ex = ST.entries.find(x => x.id === +b.dataset.del), back = ex && ex.shares ? C.shareStatus(ST, ex.id).reduce((t, x) => t + (x.amount - x.left), 0) : 0;
+    b.dataset.armed = 1; b.textContent = back ? tl(`Friends already paid back ฿${fm(back)}; that stays. Tap again to delete`, `เพื่อนคืนมาแล้ว ฿${fm(back)} (รายการคืนยังอยู่) · แตะอีกครั้งเพื่อลบ`) : tl('Tap again to delete', 'แตะอีกครั้งเพื่อลบ');
   });
 }
 
@@ -701,7 +701,7 @@ function renderAdd() {
     $('place').value = F.place;
     const q = F.place.trim().toLowerCase(), hits = ST.places.filter(p => !q || p.n.toLowerCase().includes(q)).slice(0, 5);
     $('placeChips').innerHTML = hits.map((p, i) => `<button type="button" class="chip" data-i="${i}" aria-pressed="${p.n.toLowerCase() === q}">${esc(p.n)}<span class="pill">${esc(cn(p.c))} · ${esc(acct(p.s))}</span></button>`).join('');
-    $('placeChips').querySelectorAll('button').forEach(b => b.onclick = () => { const p = hits[+b.dataset.i]; F.place = p.n; F.cat = p.c; F.from = C.isInvest(ST, p.s) ? ST.spendTo : p.s; renderAdd(); });
+    $('placeChips').querySelectorAll('button').forEach(b => b.onclick = () => { const p = hits[+b.dataset.i]; F.place = p.n; F.cat = p.c; renderAdd(); });
     $('people').innerHTML = withCur(friendList(), null).concat(F.split.filter(p => !friendList().includes(p))).map(p => `<button type="button" class="chip" aria-pressed="${F.split.includes(p)}" data-p="${esc(p)}">${esc(p)}</button>`).join('');
     $('people').querySelectorAll('button').forEach(b => b.onclick = () => { const p = b.dataset.p; F.split = F.split.includes(p) ? F.split.filter(x => x !== p) : [...F.split, p]; delete F.custom[p]; F.confirmed = false; renderAdd(); });
     const total = C.toSatang(F.amount), sh = sharesFor(total);
@@ -758,7 +758,7 @@ $('pre').onchange = ev => { F.pre = ev.target.checked; F.confirmed = false; rend
 $('date').oninput = ev => { F.date = ev.target.value; F.confirmed = false; renderAdd(); };
 $('note').oninput = ev => { F.note = ev.target.value; };
 $('hours').oninput = ev => { F.hours = ev.target.value; const h = Number(F.hours); F.amount = h > 0 ? (Math.round(h * ST.helpRate) / 100).toFixed(2) : ''; F.confirmed = false; renderAdd(); };
-$('place').oninput = ev => { F.place = ev.target.value; const p = ST.places.find(x => x.n.toLowerCase() === F.place.trim().toLowerCase()); if (p) { F.cat = p.c; F.from = C.isInvest(ST, p.s) ? ST.spendTo : p.s; } renderAdd(); $('place').focus(); };
+$('place').oninput = ev => { F.place = ev.target.value; const p = ST.places.find(x => x.n.toLowerCase() === F.place.trim().toLowerCase()); if (p) { F.cat = p.c; } renderAdd(); $('place').focus(); };
 // a typed name counts even if "Add" was never tapped (on Enter, leaving the box, Done or Save)
 function flushFriend() { const v = $('newFriend').value.trim(); if (!v) return false;
   if (!friendList().includes(v)) { ST.people.push(v); persist(); }
@@ -816,7 +816,7 @@ function renderQuick() {
   $('qFrom').innerHTML = `${tl('Paid with', 'จ่ายด้วย')} <b>${esc(fromName)}</b>`;
   const dLbl = F.date === ST.today ? tl('Today', 'วันนี้') : F.date === C.addDays(ST.today, -1) ? tl('Yesterday', 'เมื่อวาน') : dl(F.date);
   $('qDate').innerHTML = `${tl('Date', 'วันที่')} <b>${esc(dLbl)}</b>${isPre() ? ' · ' + tl('not deducted', 'ไม่หักยอด') : ''}`;
-  { const bl = F.bill && C.billStatus(ST, ST.today).find(x => x.id === F.bill), got = [bl ? billName(bl) : '', F.place.trim(), F.split.length ? tl('split with ', 'หารกับ ') + F.split.join(', ') : '', F.note.trim() ? tl('note', 'โน้ต') : ''].filter(Boolean);
+  { const bl = F.bill && C.billStatus(ST, ST.today).find(x => x.id === F.bill), got = [bl ? billName(bl) : '', F.place.trim(), F.split.length ? tl('split: ', 'หาร: ') + (C.toSatang(F.amount || 0) > 0 ? sharesFor(C.toSatang(F.amount)).map(x => `${x.p} ${fm0(x.amount)}`).join(', ') + tl(' · me ', ' · ฉัน ') + fm0(C.toSatang(F.amount) - sharesFor(C.toSatang(F.amount)).reduce((t, x) => t + x.amount, 0)) : F.split.join(', ')) : '', F.note.trim() ? tl('note', 'โน้ต') : ''].filter(Boolean);
     $('qMore').innerHTML = got.length ? `<b>${esc(got.join(' · '))}</b>` : tl('+ Details: bill, shop, friends, note', '+ รายละเอียด: บิล ร้าน เพื่อน โน้ต'); }
   const picked = F.qcat && live.some(c => c.id === F.qcat) ? F.qcat : '';
   $('qHint').textContent = !amt ? tl('Tap the amount to type it, then pick a category', 'แตะที่ยอดเงินเพื่อใส่ตัวเลข แล้วเลือกหมวด') : !picked ? tl('Pick a category', 'เลือกหมวด') : tl('Check, then tap Save', 'ตรวจแล้วกดบันทึก');
@@ -883,7 +883,7 @@ function quickSave(cat) {
   F.cat = cat; const e = buildEntry(), v = C.validate(ST, e);
   if (!v.ok) { toast(tr(v.errors[0].msg)); return; }
   if (v.warnings.length) { F.full = true; F.cat = cat; renderAdd(); scrollTo(0, 0); return; } // the full form shows the warning and asks before saving
-  commit(e, { msg: tl(`Saved ${cn(cat)} ฿${fm(e.amount)}`, `บันทึก ${cn(cat)} ฿${fm(e.amount)} แล้ว`) });
+  commit(e, { msg: tl(`Saved ${cn(cat)} ฿${fm(e.amount)}`, `บันทึก ${cn(cat)} ฿${fm(e.amount)} แล้ว`) + (e.shares ? tl(` · friends owe ฿${fm(C.sharesTotal(e))}`, ` · เพื่อนค้าง ฿${fm(C.sharesTotal(e))}`) : '') });
   F = blankForm(); renderAdd(); // back to today and the usual account, so nothing sticks by surprise
 }
 $('qSave').onclick = () => (F.type === 'expense' ? quickSave(F.qcat) : quickSaveIO());
@@ -1703,7 +1703,7 @@ $('lang').onclick = () => { L = L === 'en' ? 'th' : 'en'; try { localStorage.set
     else if (cur === 'plan') go('wallet'); else if (cur === 'add' && F.editingId) { F = blankForm(); go('hist'); } else if (cur !== 'home' && cur !== 'setup') go('home'); }, { passive: true }); }
 let tt;
 function toast(m, withUndo = false) {
-  const el = $('toast'); el.innerHTML = `<span>${esc(m)}</span>${withUndo && undoStack ? `<button id="undoBtn">${tl('Undo', 'ย้อนกลับ')}</button>` : ''}`; el.hidden = false;
+  const el = $('toast'); el.innerHTML = `<span>${esc(m)}</span>${withUndo && undoStack ? `<button id="undoBtn">${tl('Undo', 'เลิกทำ')}</button>` : ''}`; el.hidden = false;
   if (withUndo && undoStack) $('undoBtn').onclick = () => { const u = undoStack; undoStack = null; u(); persist(); el.hidden = true; render(); };
   clearTimeout(tt); tt = setTimeout(() => { el.hidden = true; }, withUndo ? 5000 : 2200);
 }

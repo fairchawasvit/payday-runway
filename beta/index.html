@@ -539,6 +539,8 @@ summary{min-height:44px;display:flex;align-items:center}
 .qmeta button b{color:var(--ink);font-weight:600}
 #qMore{flex:0 0 100%;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qsgrp{flex:0 0 100%;margin:6px 0 0;font-size:12px;font-weight:600;color:var(--ink-3)}
+.amtcol{display:flex;flex-direction:column;align-items:flex-end}
+.myshare{display:block;font-size:11px;color:var(--ink-3);text-align:right}
 .qhint{text-align:center;font-size:13px;color:var(--ink-3);margin:0}
 .qcats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .qcat{border:0;background:var(--surface);border-radius:14px;min-height:60px;font-size:13px;color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px;transition:transform .12s}
@@ -554,6 +556,7 @@ summary{min-height:44px;display:flex;align-items:center}
 .qsheet{position:fixed;inset:0;z-index:20;background:rgba(10,14,22,.35);display:flex;align-items:flex-end}
 .qsheet[hidden]{display:none!important}
 .qsbox{width:100%;max-width:440px;margin:0 auto;background:var(--surface);border-radius:20px 20px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;max-height:80vh;overflow:auto}
+.qsbox > .btn{position:sticky;bottom:0;flex:none;box-shadow:0 -8px 16px var(--surface)}
 .qsbox h3{margin:0;font-size:15px}
 .dslot{display:flex;flex-direction:column;gap:14px}.dslot .group{background:none;padding:0}.dslot .note,.dslot .addrow input{background:var(--raise)}
 .num.prev{color:var(--ink-3)}
