@@ -665,6 +665,9 @@ function renderAdd() {
   $('toQuick').hidden = !(F.full && F.type === 'expense' && !F.editingId);
   if (quick) { renderQuick(); if (!F.dOpen) return; }
   $('amt').value = F.amount; $('date').value = F.date; $('note').value = F.note;
+  { const pad = F.type !== 'expense' && !F.editingId; // income and moves use the same keypad as Spend
+    $('fPad').hidden = !pad; $('amt').readOnly = pad; $('amt').inputMode = pad ? 'none' : 'decimal';
+    if (pad) drawPad($('fPad'), renderAdd); }
   const onStart = ST.startDate && F.date === ST.startDate, before = ST.startDate && C.isDate(F.date) && F.date < ST.startDate;
   $('preRow').hidden = !onStart; $('pre').checked = !!F.pre;
   $('preNote').hidden = !isPre();
@@ -773,6 +776,17 @@ function sheet(title, items, cur, onPick, extra = '') {
 const closeSheet = () => { $('qSheet').hidden = true; renderAdd(); };
 $('qsDone').onclick = closeSheet;
 $('qSheet').onclick = ev => { if (ev.target === $('qSheet')) closeSheet(); };
+// one keypad for every entry type: edits F.amount, then redraws
+function drawPad(el, after) {
+  el.innerHTML = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del'].map(k => `<button type="button" class="${k === 'del' ? 'fn' : ''}" data-k="${k}" aria-label="${k === 'del' ? tl('Delete', 'ลบ') : k}">${k === 'del' ? '<svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px"><path d="M9 5h11v14H9l-6-7zM12 9l5 6M17 9l-5 6"/></svg>' : k}</button>`).join('');
+  el.querySelectorAll('button').forEach(b => b.onclick = () => {
+    let v = F.amount || ''; const k = b.dataset.k;
+    if (k === 'del') v = v.slice(0, -1);
+    else if (k === '.') { if (!v.includes('.')) v = (v || '0') + '.'; }
+    else { if (v.includes('.') && v.split('.')[1].length >= 2) return; if (v.replace('.', '').length >= 9) return; v = v === '0' ? k : v + k; }
+    F.amount = v; F.confirmed = false; after();
+  });
+}
 function renderQuick() {
   $('qv').textContent = fmAmt(F.amount);
   const amt = C.toSatang(F.amount || 0), now = C.safeToSpend(ST, ST.today).safe;
@@ -802,14 +816,7 @@ function renderQuick() {
     if (b.dataset.c === '__more') return sheet(tl('Other categories', 'หมวดอื่นๆ'), live.filter(c => !top.includes(c)).map(c => [c.id, L === 'th' ? c.th : c.en]), picked, k => { F.qcat = k; closeSheet(); });
     F.qcat = F.qcat === b.dataset.c ? '' : b.dataset.c; renderQuick();
   });
-  $('qPad').innerHTML = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del'].map(k => `<button type="button" class="${k === 'del' ? 'fn' : ''}" data-k="${k}" aria-label="${k === 'del' ? tl('Delete', 'ลบ') : k}">${k === 'del' ? '<svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px"><path d="M9 5h11v14H9l-6-7zM12 9l5 6M17 9l-5 6"/></svg>' : k}</button>`).join('');
-  $('qPad').querySelectorAll('button').forEach(b => b.onclick = () => {
-    let v = F.amount || ''; const k = b.dataset.k;
-    if (k === 'del') v = v.slice(0, -1);
-    else if (k === '.') { if (!v.includes('.')) v = (v || '0') + '.'; }
-    else { if (v.includes('.') && v.split('.')[1].length >= 2) return; if (v.replace('.', '').length >= 9) return; v = v === '0' ? k : v + k; }
-    F.amount = v; F.confirmed = false; renderQuick();
-  });
+  drawPad($('qPad'), renderQuick);
 }
 function quickSave(cat) {
   if (!(C.toSatang(F.amount || 0) > 0) || !cat) return;

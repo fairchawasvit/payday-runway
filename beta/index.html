@@ -546,6 +546,7 @@ summary{min-height:44px;display:flex;align-items:center}
 .qcats.ready .qcat:not(.qmore){box-shadow:inset 0 0 0 2px var(--marigold)}
 .qmore{color:var(--ink-2)}
 .qpad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:color-mix(in srgb,var(--ink) 7%,var(--ground));border-radius:16px;padding:6px;margin-top:4px}
+.qpad[hidden]{display:none}
 .qpad button{border:0;background:var(--surface);border-radius:10px;min-height:50px;font-size:24px;font-weight:500;color:var(--ink)}
 .qpad button.fn{background:transparent;font-size:18px;color:var(--ink-2)}
 .qsheet{position:fixed;inset:0;z-index:20;background:rgba(10,14,22,.35);display:flex;align-items:flex-end}
@@ -785,6 +786,7 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
     <div id="full">
     <div class="amtwrap"><span>฿</span><input class="amount" id="amt" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0" aria-label="Amount"></div>
     <p class="after" id="afterLbl"></p>
+    <div class="qpad" id="fPad" hidden></div>
     <label class="switch"><span data-en="Date" data-th="วันที่">Date</span><input type="date" id="date"></label>
     <label class="switch" id="preRow" hidden><span><span data-en="Paid before I started the app today" data-th="จ่ายไปก่อนเริ่มใช้แอปวันนี้">Paid before I started the app today</span><br><small style="color:var(--ink-3);font-size:13px" data-en="Already in the balances you entered" data-th="ยอดที่กรอกตอนเริ่มหักไปแล้ว">Already in the balances you entered</small></span><input type="checkbox" id="pre"></label>
     <p class="msg warn" id="preNote" hidden style="background:var(--credit-tint)"></p>
