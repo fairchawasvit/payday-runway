@@ -663,10 +663,12 @@ function renderAdd() {
   const quick = F.type === 'expense' && !F.editingId && !F.full;
   $('quick').hidden = !quick; $('full').hidden = quick;
   $('toQuick').hidden = !(F.full && F.type === 'expense' && !F.editingId);
+  if (F !== padF) { padF = F; PAD = !C.toSatang(F.amount || 0); } // a fresh entry opens with the keypad up
+  $('s-add').classList.toggle('padon', PAD && (quick || (F.type !== 'expense' && !F.editingId)));
   if (quick) { renderQuick(); if (!F.dOpen) return; }
   $('amt').value = F.amount; $('date').value = F.date; $('note').value = F.note;
   { const pad = F.type !== 'expense' && !F.editingId; // income and moves use the same keypad as Spend
-    $('fPad').hidden = !pad; $('amt').readOnly = pad; $('amt').inputMode = pad ? 'none' : 'decimal';
+    $('fSheetPad').hidden = !pad; $('fSheetPad').classList.toggle('off', !PAD); $('amt').readOnly = pad; $('amt').inputMode = pad ? 'none' : 'decimal';
     if (pad) drawPad($('fPad'), renderAdd); }
   const onStart = ST.startDate && F.date === ST.startDate, before = ST.startDate && C.isDate(F.date) && F.date < ST.startDate;
   $('preRow').hidden = !onStart; $('pre').checked = !!F.pre;
@@ -777,6 +779,8 @@ const closeSheet = () => { $('qSheet').hidden = true; renderAdd(); };
 $('qsDone').onclick = closeSheet;
 $('qSheet').onclick = ev => { if (ev.target === $('qSheet')) closeSheet(); };
 // one keypad for every entry type: edits F.amount, then redraws
+let PAD = true, padF = null; // keypad sheet open?
+function setPad(open) { PAD = open; renderAdd(); }
 function drawPad(el, after) {
   el.innerHTML = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del'].map(k => `<button type="button" class="${k === 'del' ? 'fn' : ''}" data-k="${k}" aria-label="${k === 'del' ? tl('Delete', 'ลบ') : k}">${k === 'del' ? '<svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px"><path d="M9 5h11v14H9l-6-7zM12 9l5 6M17 9l-5 6"/></svg>' : k}</button>`).join('');
   el.querySelectorAll('button').forEach(b => b.onclick = () => {
@@ -813,11 +817,15 @@ function renderQuick() {
   $('qCats').innerHTML = top.map(c => `<button type="button" class="qcat" aria-pressed="${c.id === picked}" data-c="${esc(c.id)}"><svg class="i"><use href="#${CAT_ICO[c.id] || 'i-tag'}"/></svg><span>${esc(L === 'th' ? c.th : c.en)}</span></button>`).join('') +
     (live.length > top.length ? `<button type="button" class="qcat qmore" data-c="__more"><svg class="i"><use href="#i-list"/></svg><span>${tl('Others', 'อื่นๆ')}</span></button>` : '');
   $('qCats').querySelectorAll('button').forEach(b => b.onclick = () => {
-    if (b.dataset.c === '__more') return sheet(tl('Other categories', 'หมวดอื่นๆ'), live.filter(c => !top.includes(c)).map(c => [c.id, L === 'th' ? c.th : c.en]), picked, k => { F.qcat = k; closeSheet(); });
-    F.qcat = F.qcat === b.dataset.c ? '' : b.dataset.c; renderQuick();
+    if (b.dataset.c === '__more') return sheet(tl('Other categories', 'หมวดอื่นๆ'), live.filter(c => !top.includes(c)).map(c => [c.id, L === 'th' ? c.th : c.en]), picked, k => { F.qcat = k; closeSheet(); PAD = false; renderAdd(); });
+    F.qcat = F.qcat === b.dataset.c ? '' : b.dataset.c; if (F.qcat && C.toSatang(F.amount || 0) > 0) return setPad(false); renderQuick();
   });
+  $('qSheetPad').classList.toggle('off', !PAD);
   drawPad($('qPad'), renderQuick);
 }
+document.querySelectorAll('.padok').forEach(b => b.onclick = () => setPad(false));
+document.querySelector('.qamt').onclick = () => setPad(true);
+$('amt').addEventListener('click', () => { if ($('amt').readOnly) setPad(true); });
 function quickSave(cat) {
   if (!(C.toSatang(F.amount || 0) > 0) || !cat) return;
   F.cat = cat; const e = buildEntry(), v = C.validate(ST, e);
