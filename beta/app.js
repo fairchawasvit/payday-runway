@@ -496,13 +496,13 @@ function wallet() {
   $('pplSec').hidden = !ppl.length;
   $('pplSum').textContent = r.owedToMe ? `+${fm(r.owedToMe)}` : '';
   $('ppl').innerHTML = ppl.map(([k, v]) => `<div class="prow"><div class="pl"><b>${esc(person(k))}</b><small>${v > 0 ? tl('owes you', 'ค้างคุณ') : tl('you owe', 'คุณค้าง')} <span class="num">฿${fm(Math.abs(v))}</span></small></div>
-    <input class="field" type="number" inputmode="decimal" step="0.01" min="0.01" id="pp-${esc(k)}" value="${(Math.abs(v) / 100).toFixed(2)}" aria-label="${esc(person(k))}">
     <button class="act" data-p="${esc(k)}" data-dir="${v > 0 ? 'in' : 'out'}">${v > 0 ? tl('Received', 'ได้รับ') : tl('Paid', 'จ่ายแล้ว')}</button></div>`).join('');
   $('ppl').querySelectorAll('[data-p]').forEach(btn => btn.onclick = () => {
-    const k = btn.dataset.p, amt = C.toSatang($('pp-' + k).value);
-    const e = btn.dataset.dir === 'in' ? { type: 'transfer', date: ST.today, amount: amt, from: 'person:' + k, to: ST.spendTo } : { type: 'transfer', date: ST.today, amount: amt, from: ST.spendTo, to: 'person:' + k };
-    attempt(e, { msg: btn.dataset.dir === 'in' ? tl(`${person(k)} paid back ฿${fm(amt)}`, `${person(k)} คืน ฿${fm(amt)}`) : tl(`Paid ${person(k)} ฿${fm(amt)}`, `โอนให้${person(k)} ฿${fm(amt)}`) }) && wallet();
+    const k = btn.dataset.p, v = Math.abs(r.people[k] || 0), amount = (v / 100).toFixed(2);
+    F = btn.dataset.dir === 'in' ? { ...blankForm(), type: 'income', incCat: '__repay', repay: k, amount } : { ...blankForm(), type: 'transfer', tFrom: ST.spendTo, tTo: 'person:' + k, amount };
+    go('add'); // the entry screen shows the amount (change it for a part payment) and the account before saving
   });
+
   // check against the bank app
   if (!RA || !accts.includes(RA)) RA = accts.includes(ST.spendTo) ? ST.spendTo : accts[0];
   $('recSel').innerHTML = opts(accts, RA);
@@ -640,6 +640,7 @@ function buildEntry0() {
     const sh = sharesFor(amount); if (sh.length) e.shares = sh;
     return e;
   }
+  if (F.type === 'income' && F.incCat === '__repay') return { type: 'transfer', date: F.date, amount, from: 'person:' + F.repay, to: F.to, ...(F.note.trim() ? { note: F.note.trim() } : {}) };
   if (F.type === 'income') return { type: 'income', date: F.date, amount, to: F.to, cat: F.incCat, ...(F.note.trim() ? { note: F.note.trim() } : {}) };
   return { type: 'transfer', date: F.date, amount, from: F.tFrom, to: F.tTo, ...(F.note.trim() ? { note: F.note.trim() } : {}) };
 }
@@ -660,9 +661,9 @@ function renderAdd() {
   $('cancelEdit').hidden = !F.editingId;
   seg($('etype'), [['expense', tl('Spend', 'จ่าย')], ['income', tl('Income', 'รับ')], ['transfer', tl('Move', 'โอน')]], F.type, k => { F.type = k; });
   // a new spend starts on the keypad; editing, income, moves and "more details" use the full form
-  const quick = F.type === 'expense' && !F.editingId && !F.full;
+  const quick = !F.editingId && !F.full;
   $('quick').hidden = !quick; $('full').hidden = quick;
-  $('toQuick').hidden = !(F.full && F.type === 'expense' && !F.editingId);
+  $('toQuick').hidden = !(F.full && !F.editingId);
   if (F !== padF) { padF = F; PAD = false; } // the keypad comes up only when the amount is tapped
   $('s-add').classList.toggle('padon', PAD && (quick || (F.type !== 'expense' && !F.editingId)));
   if (quick) { renderQuick(); if (!F.dOpen) return; }
@@ -778,8 +779,8 @@ const CAT_ICO = { food: 'i-food', fuel: 'i-fuel', power: 'i-bolt', rent: 'i-home
 const fmAmt = v => { if (!v) return '0'; const [a, b] = v.split('.'); return Number(a || 0).toLocaleString('en-US') + (b !== undefined ? '.' + b : ''); };
 function sheet(title, items, cur, onPick, extra = '') {
   $('qsT').textContent = title;
-  $('qsRow').innerHTML = items.map(([k, l]) => `<button type="button" class="chip" aria-pressed="${k === cur}" data-k="${esc(k)}">${esc(l)}</button>`).join('');
-  $('qsExtra').innerHTML = extra; $('qSheet').hidden = false;
+  $('qsRow').innerHTML = items.map(([k, l]) => k === '' ? `<p class="qsgrp">${esc(l)}</p>` : `<button type="button" class="chip" aria-pressed="${k === cur}" data-k="${esc(k)}">${esc(l)}</button>`).join('');
+  $('qsExtra').innerHTML = extra; $('qSheet').hidden = false; PAD = false; $('qSheetPad').classList.add('off'); $('fSheetPad').classList.add('off'); $('s-add').classList.remove('padon');
   $('qsRow').querySelectorAll('button').forEach(b => b.onclick = () => { onPick(b.dataset.k); });
 }
 const closeSheet = () => { $('qSheet').hidden = true; renderAdd(); };
@@ -799,6 +800,8 @@ function drawPad(el, after) {
   });
 }
 function renderQuick() {
+  if (F.type !== 'expense') return renderQuickIO();
+  $('qCats').hidden = false; $('qTo').hidden = true; $('qMore').hidden = false;
   $('qv').textContent = fmAmt(F.amount);
   const amt = C.toSatang(F.amount || 0), now = C.safeToSpend(ST, ST.today).safe;
   const live = ST.cats.filter(c => !c.arch), used = {};
@@ -833,16 +836,64 @@ function renderQuick() {
 document.querySelectorAll('.padok').forEach(b => b.onclick = () => setPad(false));
 document.querySelector('.qamt').onclick = () => setPad(true);
 $('amt').addEventListener('click', () => { if ($('amt').readOnly) setPad(true); });
+const dateLbl = () => `${tl('Date', 'วันที่')} <b>${esc(F.date === ST.today ? tl('Today', 'วันนี้') : F.date === C.addDays(ST.today, -1) ? tl('Yesterday', 'เมื่อวาน') : dl(F.date))}</b>${isPre() ? ' · ' + tl('not deducted', 'ไม่หักยอด') : ''}`;
+const owedToMe = () => Object.entries(C.safeToSpend(ST, ST.today).people).filter(([, v]) => v > 0);
+// Income and Move: same layout as Spend (amount, chips, choices, save)
+function renderQuickIO() {
+  const isI = F.type === 'income', repay = isI && F.incCat === '__repay', amt = C.toSatang(F.amount || 0), now = C.safeToSpend(ST, ST.today).safe;
+  $('qv').textContent = fmAmt(F.amount);
+  const ready = amt > 0 && (!repay || F.repay) && (isI || F.tFrom !== F.tTo);
+  const e = ready ? buildEntry() : null, v = e ? C.validate(ST, e) : null;
+  if (e && v.ok) { const then = C.safeToSpend({ ...ST, entries: [...ST.entries, { ...e, id: -1 }] }, ST.today).safe;
+    $('qAfter').innerHTML = then === now ? tl('Safe to spend stays the same', 'ยอดใช้ได้จริงไม่เปลี่ยน') : `${tl('Safe to spend after this', 'หลังจดแล้วใช้ได้จริง')} <b class="num ${then < 0 ? 'neg' : ''}">${then < 0 ? '−' : ''}฿${fm(Math.abs(then))}</b>`;
+  } else $('qAfter').innerHTML = `${tl('Safe to spend now', 'ใช้ได้จริงตอนนี้')} <b class="num">${now < 0 ? '−' : ''}฿${fm(Math.abs(now))}</b>`;
+  $('qFrom').innerHTML = isI ? `${tl('Into', 'เข้า')} <b>${esc(acct(F.to))}</b>` : `${tl('From', 'จาก')} <b>${esc(acct(F.tFrom))}</b>`;
+  $('qTo').hidden = isI; $('qTo').innerHTML = `${tl('To', 'ไป')} <b>${esc(acct(F.tTo))}</b>`;
+  $('qDate').innerHTML = dateLbl();
+  $('qMore').hidden = repay;
+  $('qMore').innerHTML = F.note.trim() ? `<b>${tl('Note', 'โน้ต')}: ${esc(F.note.trim())}</b>` : tl('+ Note', '+ โน้ต');
+  let tiles = '';
+  if (isI) {
+    tiles = [...ST.incCats.map(c => [c.id, L === 'th' ? c.th : c.en, 'i-tag']), ['__repay', tl('Friend paid back', 'เพื่อนคืนเงิน'), 'i-user']]
+      .map(([k, l, ic]) => `<button type="button" class="qcat" aria-pressed="${k === F.incCat}" data-k="${esc(k)}"><svg class="i"><use href="#${ic}"/></svg><span>${esc(l)}</span></button>`).join('');
+    if (repay) { const ow = owedToMe();
+      tiles += ow.length ? ow.map(([p, v]) => `<button type="button" class="qcat" aria-pressed="${p === F.repay}" data-p="${esc(p)}"><span><b>${esc(person(p))}</b><br><small class="num">${tl('owes', 'ค้าง')} ฿${fm(v)}</small></span></button>`).join('')
+        : `<p class="qhint" style="grid-column:1/-1">${tl('No friend owes you money right now.', 'ตอนนี้ไม่มีเพื่อนค้างเงินคุณ')}</p>`; }
+  }
+  $('qCats').innerHTML = tiles; $('qCats').hidden = !isI; $('qCats').classList.remove('ready');
+  $('qCats').querySelectorAll('[data-k]').forEach(b => b.onclick = () => { F.incCat = b.dataset.k; if (F.incCat !== '__repay') F.repay = ''; if (amt > 0 && F.incCat !== '__repay') return setPad(false); renderAdd(); });
+  $('qCats').querySelectorAll('[data-p]').forEach(b => b.onclick = () => { F.repay = b.dataset.p; const o = owedToMe().find(([p]) => p === F.repay); if (!amt && o) F.amount = (o[1] / 100).toFixed(2); setPad(false); });
+  $('qHint').textContent = v && !v.ok ? tr(v.errors[0].msg) : !amt ? tl('Tap the amount to type it', 'แตะที่ยอดเงินเพื่อใส่ตัวเลข') : repay && !F.repay ? tl('Who paid you back?', 'เพื่อนคนไหนคืน?') : !isI && F.tFrom === F.tTo ? tl('Pick a different "To"', 'เลือกปลายทางที่ไม่ใช่บัญชีเดิม') : tl('Check, then tap Save', 'ตรวจแล้วกดบันทึก');
+  const ok = !!(v && v.ok); $('qSave').disabled = !ok;
+  const kind = isI ? (repay ? (F.repay ? tl(`${person(F.repay)} paid back`, `${person(F.repay)} คืนเงิน`) : '') : ((ST.incCats.find(c => c.id === F.incCat) || {})[L === 'th' ? 'th' : 'en'] || '')) : `${acct(F.tFrom)} → ${acct(F.tTo)}`;
+  $('qSave').textContent = ok ? tl(`Save ${isI ? '' : 'move '}${kind} ฿${fm(amt)}`, `บันทึก ${isI ? 'รับ' : 'โอน'} ${kind} ฿${fm(amt)}`) : tl('Save', 'บันทึก');
+  $('qSheetPad').classList.toggle('off', !PAD);
+  drawPad($('qPad'), renderQuick);
+}
+function quickSaveIO() {
+  const e = buildEntry(), v = C.validate(ST, e);
+  if (!v.ok) { toast(tr(v.errors[0].msg)); return; }
+  if (v.warnings.length) { F.full = true; renderAdd(); scrollTo(0, 0); return; }
+  const what = $('qSave').textContent.replace(/^(Save|บันทึก) /, '');
+  commit(e, { msg: tl(`Saved: ${what}`, `บันทึกแล้ว: ${what}`) });
+  F = { ...blankForm(), type: F.type, incCat: F.incCat === '__repay' ? 'salary' : F.incCat }; renderAdd();
+}
 function quickSave(cat) {
   if (!(C.toSatang(F.amount || 0) > 0) || !cat) return;
   F.cat = cat; const e = buildEntry(), v = C.validate(ST, e);
   if (!v.ok) { toast(tr(v.errors[0].msg)); return; }
   if (v.warnings.length) { F.full = true; F.cat = cat; renderAdd(); scrollTo(0, 0); return; } // the full form shows the warning and asks before saving
   commit(e, { msg: tl(`Saved ${cn(cat)} ฿${fm(e.amount)}`, `บันทึก ${cn(cat)} ฿${fm(e.amount)} แล้ว`) });
-  F = { ...blankForm(), from: F.from, pot: F.pot, date: F.date }; renderAdd();
+  F = blankForm(); renderAdd(); // back to today and the usual account, so nothing sticks by surprise
 }
-$('qSave').onclick = () => quickSave(F.qcat);
-$('qFrom').onclick = () => sheet(tl('Paid with', 'จ่ายด้วย'), ACCTS_SPEND().map(k => [k, k === 'POT' ? tl('Pocket', 'กอง') : acct(k)]), F.from, k => {
+$('qSave').onclick = () => (F.type === 'expense' ? quickSave(F.qcat) : quickSaveIO());
+const moveOpts = all => { const list = ACCTS_MOVE().filter(a => all || !C.isCard(a)), out = [];
+  for (const [h, test] of [[tl('Accounts', 'บัญชี'), a => !C.isPot(a) && !C.isCard(a) && !C.isPerson(a)], [tl('Pockets', 'กอง'), C.isPot], [tl('Card bill', 'จ่ายบิลบัตร'), C.isCard], [tl('People', 'เพื่อน / คนที่ค้างกัน'), C.isPerson]]) {
+    const g = list.filter(test); if (g.length) out.push(['', h], ...g.map(a => [a, acct(a)])); }
+  return out; };
+$('qTo').onclick = () => sheet(tl('To', 'ไปที่'), moveOpts(true), F.tTo, k => { F.tTo = k; closeSheet(); });
+$('qFrom').onclick = () => F.type === 'income' ? sheet(tl('Into', 'เข้าบัญชี'), withCur(liveAccts(), F.to).map(a => [a, acct(a)]), F.to, k => { F.to = k; closeSheet(); })
+  : F.type === 'transfer' ? sheet(tl('From', 'จาก'), moveOpts(false), F.tFrom, k => { F.tFrom = k; closeSheet(); }) : sheet(tl('Paid with', 'จ่ายด้วย'), ACCTS_SPEND().map(k => [k, k === 'POT' ? tl('Pocket', 'กอง') : acct(k)]), F.from, k => {
   if (k === 'POT') return sheet(tl('Which pocket', 'กองไหน'), ST.pots.filter(p => !p.arch).map(p => ['pot:' + p.id, pn(p)]), 'pot:' + F.pot, x => { F.from = 'POT'; F.pot = x.slice(4); closeSheet(); });
   F.from = k; closeSheet();
 });
@@ -854,7 +905,7 @@ $('qDate').onclick = () => {
 };
 // "Details" opens over the keypad; the real form parts move into the sheet and back, so nothing is lost
 const D_PARTS = ['gBill', 'gPlace', 'gSplit', 'gNote'].map(id => { const n = $(id); return { n, parent: n.parentNode, next: n.nextSibling }; });
-$('qMore').onclick = () => { F.dOpen = true; PAD = false; D_PARTS.forEach(x => $('dSlot').appendChild(x.n)); $('dSheet').hidden = false; renderAdd(); };
+$('qMore').onclick = () => { if (F.type !== 'expense') { sheet(tl('Note', 'โน้ต'), [], '', () => {}, `<input class="note" id="qsNote" autocomplete="off" placeholder="${tl('Optional', 'ไม่บังคับ')}" value="${esc(F.note)}">`); $('qsNote').oninput = ev => { F.note = ev.target.value; }; return; } F.dOpen = true; PAD = false; D_PARTS.forEach(x => $('dSlot').appendChild(x.n)); $('dSheet').hidden = false; renderAdd(); };
 function closeDetails() {
   if (!F.dOpen) return; flushFriend(); F.dOpen = false; $('dSheet').hidden = true;
   [...D_PARTS].reverse().forEach(x => x.parent.insertBefore(x.n, x.next));
@@ -1620,7 +1671,7 @@ function go(s) {
   document.querySelector('nav.bar').hidden = s === 'setup';
   document.querySelectorAll('nav.bar button').forEach(b => b.dataset.go === (s === 'sum' ? 'hist' : s === 'plan' ? 'wallet' : s) ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
   if (s !== 'add' && F.editingId) F = blankForm();
-  if (s !== 'add') { F.full = false; F.qcat = ''; if (!F.editingId) F.amount = ''; $('qSheet').hidden = true; closeDetails(); }
+  if (s !== 'add') { F.full = false; PAD = false; $('qSheet').hidden = true; closeDetails(); } // a half-written entry is kept for when you come back
   $('helpSheet').hidden = true;
   if (s === 'set') closeSub();
   markHs(s);

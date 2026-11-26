@@ -538,6 +538,7 @@ summary{min-height:44px;display:flex;align-items:center}
 .qmeta button{border:0;background:var(--surface);border-radius:99px;min-height:44px;padding:0 12px;font-size:13px;color:var(--ink-2)}
 .qmeta button b{color:var(--ink);font-weight:600}
 #qMore{flex:0 0 100%;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qsgrp{flex:0 0 100%;margin:6px 0 0;font-size:12px;font-weight:600;color:var(--ink-3)}
 .qhint{text-align:center;font-size:13px;color:var(--ink-3);margin:0}
 .qcats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .qcat{border:0;background:var(--surface);border-radius:14px;min-height:60px;font-size:13px;color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px;transition:transform .12s}
@@ -589,7 +590,7 @@ body{min-height:100vh;min-height:100lvh}
 .herowhy{margin:8px 0 0;display:flex;align-items:center;gap:10px;font-size:13px;color:#ffd2c7;background:rgba(255,255,255,.08);border-radius:10px;padding:6px 6px 6px 10px}
 .herowhy span{flex:1}.herowhy button{border:0;border-radius:99px;min-height:44px;padding:0 14px;background:#fff;color:var(--debit);font-weight:600;font-size:13px}
 /* v3.7 */
-body.on-add nav.bar [data-go="add"]{visibility:hidden}
+
 #qSave{margin-top:6px}.qpad{margin-top:auto}
 #quick{gap:6px}
 .herowhy{display:block}
@@ -642,7 +643,7 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
 .pdstep .pdacts{display:flex;gap:8px}.pdstep .pdacts .btn{flex:1}
 
 /* B: the keypad is a sheet that slides up when the amount is tapped */
-.padsheet{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--ground);padding:8px 16px calc(10px + env(safe-area-inset-bottom,0px));border-radius:18px 18px 0 0;box-shadow:0 -10px 30px -10px rgba(0,0,0,.35);transition:transform .22s cubic-bezier(.2,.8,.2,1);max-width:560px;margin:0 auto}
+.padsheet{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:15;background:var(--ground);padding:8px 16px 10px;border-radius:18px;box-shadow:0 -10px 30px -10px rgba(0,0,0,.35);transition:transform .22s cubic-bezier(.2,.8,.2,1);max-width:560px;margin:0 auto}
 .padsheet.off{transform:translateY(110%);visibility:hidden;transition:transform .22s,visibility 0s .22s}
 .padsheet .qpad{margin-top:0!important}
 .padsheet .padok{width:100%;margin-top:8px}
@@ -729,7 +730,7 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
     <div class="sec" id="pplSec">
       <h2><span class="h" data-en="People" data-th="คนที่ค้างกัน">People</span><span class="num pos" id="pplSum"></span></h2>
       <div class="ledger" id="ppl"></div>
-      <p class="hint" data-en="Money friends owe you is not counted as safe to spend until it arrives. Change the amount for a partial payment." data-th="เงินที่เพื่อนค้างยังไม่นับเป็นเงินใช้ได้จนกว่าจะได้รับจริง · แก้ตัวเลขได้ถ้าคืนไม่ครบ">Money friends owe you is not counted until it arrives.</p>
+      <p class="hint" data-en="Money friends owe you is not counted as safe to spend until it arrives. Tap Received, then change the amount if they paid part of it." data-th="เงินที่เพื่อนค้างยังไม่นับเป็นเงินใช้ได้จนกว่าจะได้รับจริง · กด "ได้รับ" แล้วแก้ยอดได้ถ้าคืนไม่ครบ">Money friends owe you is not counted until it arrives.</p>
     </div>
     <div class="sec">
       <h2><span class="h" data-en="Check against your bank app" data-th="เช็กยอดกับแอปธนาคาร">Check against your bank app</span></h2>
@@ -787,7 +788,7 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
     <div class="seg seg3" id="etype" role="group" aria-label="Entry type"></div>
     <div id="quick" hidden>
       <div class="qamt"><div class="qv num"><small>฿</small><span id="qv">0</span></div><p class="after" id="qAfter"></p></div>
-      <div class="qmeta"><button type="button" id="qFrom"></button><button type="button" id="qDate"></button><button type="button" id="qMore"></button></div>
+      <div class="qmeta"><button type="button" id="qFrom"></button><button type="button" id="qTo" hidden></button><button type="button" id="qDate"></button><button type="button" id="qMore"></button></div>
       <p class="qhint" id="qHint"></p>
       <div class="qcats" id="qCats"></div>
       <div class="padsheet" id="qSheetPad"><div class="qpad" id="qPad"></div><button type="button" class="btn padok" data-en="Done" data-th="เสร็จ">Done</button></div>
