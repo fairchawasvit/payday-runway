@@ -663,7 +663,7 @@ function renderAdd() {
   const quick = F.type === 'expense' && !F.editingId && !F.full;
   $('quick').hidden = !quick; $('full').hidden = quick;
   $('toQuick').hidden = !(F.full && F.type === 'expense' && !F.editingId);
-  if (F !== padF) { padF = F; PAD = !C.toSatang(F.amount || 0); } // a fresh entry opens with the keypad up
+  if (F !== padF) { padF = F; PAD = false; } // the keypad comes up only when the amount is tapped
   $('s-add').classList.toggle('padon', PAD && (quick || (F.type !== 'expense' && !F.editingId)));
   if (quick) { renderQuick(); if (!F.dOpen) return; }
   $('amt').value = F.amount; $('date').value = F.date; $('note').value = F.note;
@@ -809,7 +809,7 @@ function renderQuick() {
   { const bl = F.bill && C.billStatus(ST, ST.today).find(x => x.id === F.bill), got = [bl ? billName(bl) : '', F.place.trim(), F.split.length ? tl('split with ', 'หารกับ ') + F.split.join(', ') : '', F.note.trim() ? tl('note', 'โน้ต') : ''].filter(Boolean);
     $('qMore').innerHTML = got.length ? `<b>${esc(got.join(' · '))}</b>` : tl('+ Details: bill, shop, friends, note', '+ รายละเอียด: บิล ร้าน เพื่อน โน้ต'); }
   const picked = F.qcat && live.some(c => c.id === F.qcat) ? F.qcat : '';
-  $('qHint').textContent = !amt ? tl('Type the amount, then pick a category', 'พิมพ์ยอด แล้วเลือกหมวด') : !picked ? tl('Pick a category', 'เลือกหมวด') : tl('Check, then tap Save', 'ตรวจแล้วกดบันทึก');
+  $('qHint').textContent = !amt ? tl('Tap the amount to type it, then pick a category', 'แตะที่ยอดเงินเพื่อใส่ตัวเลข แล้วเลือกหมวด') : !picked ? tl('Pick a category', 'เลือกหมวด') : tl('Check, then tap Save', 'ตรวจแล้วกดบันทึก');
   $('qCats').classList.toggle('ready', amt > 0 && !picked);
   const ok = amt > 0 && picked; $('qSave').disabled = !ok;
   $('qSave').textContent = ok ? tl(`Save ${cn(picked)} ฿${fm(amt)}`, `บันทึก ${cn(picked)} ฿${fm(amt)}`) : tl('Save', 'บันทึก');
@@ -847,7 +847,7 @@ $('qDate').onclick = () => {
 };
 // "Details" opens over the keypad; the real form parts move into the sheet and back, so nothing is lost
 const D_PARTS = ['gBill', 'gPlace', 'gSplit', 'gNote'].map(id => { const n = $(id); return { n, parent: n.parentNode, next: n.nextSibling }; });
-$('qMore').onclick = () => { F.dOpen = true; D_PARTS.forEach(x => $('dSlot').appendChild(x.n)); $('dSheet').hidden = false; renderAdd(); };
+$('qMore').onclick = () => { F.dOpen = true; PAD = false; D_PARTS.forEach(x => $('dSlot').appendChild(x.n)); $('dSheet').hidden = false; renderAdd(); };
 function closeDetails() {
   if (!F.dOpen) return; F.dOpen = false; $('dSheet').hidden = true;
   [...D_PARTS].reverse().forEach(x => x.parent.insertBefore(x.n, x.next));

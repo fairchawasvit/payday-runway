@@ -246,7 +246,7 @@
       if (isPot(e.from)) { pots += m; fromPots[e.cat] = (fromPots[e.cat] || 0) + m; continue; }
       mine += m;
       byCat[e.cat] = (byCat[e.cat] || 0) + m;
-      if (e.place) { const k = e.place.trim(); byPlace[k] = byPlace[k] || { amount: 0, count: 0 }; byPlace[k].amount += m; byPlace[k].count++; }
+      if (e.place) { const n = e.place.trim(), k = Object.keys(byPlace).find(x => x.toLowerCase() === n.toLowerCase()) || n; byPlace[k] = byPlace[k] || { amount: 0, count: 0 }; byPlace[k].amount += m; byPlace[k].count++; }
     }
     return { mine, pots, income, byCat, byPlace, fromPots };
   }
